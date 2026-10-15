@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.5 — 2026-10-15
+
+- Works in Cursor, Windsurf, VSCodium, VS Code Insiders and remote servers: the bundled
+  `claude`/`codex` are found in the running editor's own extensions folder.
+- Windows: "Add account" picks npm's `claude.cmd` (or an .exe) instead of the extensionless
+  script that Windows cannot launch.
+- Tested on Windows, Linux and macOS in CI on every change.
+
 ## 0.1.4 — 2026-10-15
 
 - Fix "Add account" failing with exit code 127 when `claude` on PATH is npm's Node script and

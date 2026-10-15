@@ -5,6 +5,7 @@
   <a href="https://marketplace.visualstudio.com/items?itemName=TranHoaiHung.agent-pool"><img alt="Installs" src="https://img.shields.io/visual-studio-marketplace/i/TranHoaiHung.agent-pool"></a>
   <a href="https://marketplace.visualstudio.com/items?itemName=TranHoaiHung.agent-pool&ssr=false#review-details"><img alt="Rating" src="https://img.shields.io/visual-studio-marketplace/r/TranHoaiHung.agent-pool"></a>
   <a href="https://github.com/TranHoaiHung/agent-pool"><img alt="GitHub stars" src="https://img.shields.io/github/stars/TranHoaiHung/agent-pool?style=flat"></a>
+  <a href="https://github.com/TranHoaiHung/agent-pool/actions/workflows/ci.yml"><img alt="CI: Windows, Linux, macOS" src="https://github.com/TranHoaiHung/agent-pool/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Claude Code" src="https://img.shields.io/badge/Claude%20Code-supported-D97757">
   <img alt="Codex" src="https://img.shields.io/badge/Codex-supported-10A37F">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-blue">
