@@ -2,7 +2,7 @@
   "name": "agent-pool",
   "displayName": "AgentPool — AI Account Switcher",
   "description": "Switch Claude Code & Codex accounts in one click, see every account's quota on hover, and auto-switch before you hit a limit.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "tranhoaihung",
   "license": "MIT",
   "repository": {
@@ -116,8 +116,9 @@
       },
       {
         "command": "agentPool.remove",
-        "title": "Remove",
-        "category": "AgentPool"
+        "title": "Remove account",
+        "category": "AgentPool",
+        "icon": "$(trash)"
       },
       {
         "command": "agentPool.moveUp",
@@ -150,6 +151,12 @@
         "command": "agentPool.undo",
         "title": "Undo last switch",
         "category": "AgentPool"
+      },
+      {
+        "command": "agentPool.setThreshold",
+        "title": "Set auto-switch threshold (%)",
+        "category": "AgentPool",
+        "icon": "$(dashboard)"
       }
     ],
     "menus": {
@@ -173,6 +180,11 @@
           "command": "agentPool.toggleAutoSwitch",
           "when": "view == agentPool.accounts",
           "group": "1_settings@1"
+        },
+        {
+          "command": "agentPool.setThreshold",
+          "when": "view == agentPool.accounts",
+          "group": "1_settings@2"
         },
         {
           "command": "agentPool.toggleTerminalScope",
@@ -200,6 +212,11 @@
           "command": "agentPool.moveDown",
           "when": "view == agentPool.accounts && viewItem =~ /^account/",
           "group": "inline@3"
+        },
+        {
+          "command": "agentPool.remove",
+          "when": "view == agentPool.accounts && viewItem =~ /^account/",
+          "group": "inline@4"
         },
         {
           "command": "agentPool.switchTo",
@@ -240,10 +257,6 @@
           "when": "false"
         },
         {
-          "command": "agentPool.remove",
-          "when": "false"
-        },
-        {
           "command": "agentPool.toggleRotation",
           "when": "false"
         }
@@ -274,9 +287,9 @@
           "type": "number",
           "default": 95,
           "minimum": 50,
-          "maximum": 99,
-          "description": "Usage share (any limit: 5-hour, weekly, model) at which the account in use is switched away from.",
-          "order": 2
+          "maximum": 100,
+          "order": 2,
+          "markdownDescription": "Usage share (any limit: 5-hour, weekly, model) at which the account in use is switched away from. Default 95. Higher (98, 99, 100) uses more of each account but leaves less margin: at 100 the switch happens only once the account is already refusing requests."
         },
         "agentPool.autoSwitch.returnToPreferred": {
           "type": "boolean",
@@ -286,15 +299,15 @@
         },
         "agentPool.claude.pollIntervalSeconds": {
           "type": "number",
-          "default": 240,
+          "default": 300,
           "minimum": 180,
-          "description": "How often each Claude account's usage is read. Anthropic's usage endpoint is heavily rate-limited."
+          "description": "How often the Claude account in use reads its usage (halved near the threshold, never under 2 minutes). Anthropic's usage endpoint is rate-limited."
         },
         "agentPool.codex.pollIntervalSeconds": {
           "type": "number",
-          "default": 120,
-          "minimum": 60,
-          "description": "How often each Codex account's usage is read."
+          "default": 300,
+          "minimum": 120,
+          "description": "How often the Codex account in use reads its usage (halved near the threshold, never under 2 minutes)."
         },
         "agentPool.claude.sharedItems": {
           "type": "array",
@@ -338,6 +351,12 @@
           "type": "boolean",
           "default": false,
           "description": "Reload the window automatically when a switch needs it (Codex, or the first switch into the VS Code slot)."
+        },
+        "agentPool.idlePollMinutes": {
+          "type": "number",
+          "default": 30,
+          "minimum": 10,
+          "description": "How often accounts not in use read their usage. Auto switch reads them again right before it needs them."
         }
       }
     }

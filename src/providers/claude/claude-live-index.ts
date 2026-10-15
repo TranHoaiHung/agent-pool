@@ -5,6 +5,9 @@ import { fetchClaudeIdentity } from "./claude-api";
 import { ClaudeSlot } from "./claude-paths";
 import { readLive } from "./claude-credential-store";
 
+/** Who owns a slot may be answered from a Keychain read this recent. */
+const LOOKUP_MAX_AGE_MS = 15_000;
+
 export interface LiveOwner {
   oauth?: ClaudeOAuth;
   accountId?: string;
@@ -42,8 +45,9 @@ export class ClaudeLiveIndex {
     }
   }
 
-  async owner(slot: ClaudeSlot): Promise<LiveOwner> {
-    const live = await readLive(slot);
+  /** `fresh`: read the Keychain now (callers holding the slot's locks). */
+  async owner(slot: ClaudeSlot, fresh = false): Promise<LiveOwner> {
+    const live = await readLive(slot, fresh ? 0 : LOOKUP_MAX_AGE_MS);
     const oauth = live.doc?.claudeAiOauth;
     if (!oauth?.refreshToken) {
       return {};

@@ -3,11 +3,12 @@ import { AccountService } from "../account-service";
 import { ordered } from "../core/priority";
 import { maxUsed, PROVIDER_LABEL, ProviderId } from "../core/types";
 import { Place } from "../providers/provider";
+import { threshold } from "../usage-poller";
 import { ago, bar, shownWindows, until } from "./format";
 
 const ICON: Record<ProviderId, string> = { claude: "$(sparkle)", codex: "$(code)" };
 const STALE_AFTER_MS = 15 * 60_000;
-const COMMANDS = ["workbench.action.reloadWindow", "agentPool.switchTo", "agentPool.refresh", "agentPool.switch", "agentPool.addAccount", "agentPool.toggleTerminalScope"];
+const COMMANDS = ["workbench.action.reloadWindow", "agentPool.setThreshold", "agentPool.switchTo", "agentPool.refresh", "agentPool.switch", "agentPool.addAccount", "agentPool.toggleTerminalScope"];
 
 /** One status bar item per tool, with every account's quota in its hover tooltip. */
 export class StatusBar {
@@ -67,7 +68,9 @@ export class StatusBar {
     md.isTrusted = { enabledCommands: COMMANDS };
     md.supportHtml = false;
 
-    const auto = cfg.get<boolean>("autoSwitch.enabled", true) ? `auto ✓ ${cfg.get<number>("autoSwitch.thresholdPercent") ?? 95}%` : "auto off";
+    const auto = cfg.get<boolean>("autoSwitch.enabled", true)
+      ? `auto ✓ [${this.threshold()}%](command:agentPool.setThreshold "Change the auto switch threshold")`
+      : "auto off";
     const order = accounts.filter((a) => a.inRotation).map((a) => a.label).join(" → ");
     md.appendMarkdown(`**${PROVIDER_LABEL[provider]}**${scope}  \n$(list-ordered) ${order || "—"} · ${auto}\n\n`);
     if (this.service.pendingReload(provider)) {
@@ -127,7 +130,7 @@ export class StatusBar {
   }
 
   private threshold(): number {
-    return vscode.workspace.getConfiguration("agentPool").get<number>("autoSwitch.thresholdPercent") ?? 95;
+    return threshold();
   }
 }
 

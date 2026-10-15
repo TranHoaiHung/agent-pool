@@ -47,6 +47,18 @@ Manage several **Claude Code** and **Codex** accounts in VS Code:
 2. **Add account** (＋ in the AgentPool view, or the welcome message) for each other account. It signs in through an isolated login in a terminal + your browser; the account in use is untouched. No CLI to install: AgentPool uses the `claude` / `codex` that ships with the official extensions.
 3. **Drag** accounts into the order you want. Done — hover the status bar to watch quotas; auto switch handles the rest.
 
+## Settings
+
+| Setting | Default | What it does |
+|---|---|---|
+| `agentPool.autoSwitch.thresholdPercent` | 95 | Switch away at this share of any limit (50–100). Also: `AgentPool: Set auto-switch threshold`, or click the % in the tooltip. |
+| `agentPool.autoSwitch.enabled` | on | Auto switch on/off. |
+| `agentPool.claude.pollIntervalSeconds` / `agentPool.codex.pollIntervalSeconds` | 300 | How often the account in use reads its quota (halved near the threshold). |
+| `agentPool.idlePollMinutes` | 30 | How often accounts not in use read their quota. |
+| `agentPool.claude.switchTerminalToo` | off | Switch the terminal's `claude` too (see below). |
+
+To remove an account: 🗑 on its row in the AgentPool view or in the quick view, or `AgentPool: Remove account`.
+
 ## Claude Code: switch scope
 
 <img src="docs/images/switch-scope.png" alt="Two options: VS Code only (default, terminal keeps its account) or switch terminal too (system Keychain login)" width="100%">

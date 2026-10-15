@@ -136,3 +136,12 @@ describe("pendingReload", () => {
     expect(fresh.pendingReload("claude")).toBe(false); // a reloaded window starts after it
   });
 });
+
+describe("decide with a user threshold", () => {
+  it("switches at 98% only from 98%, and at 100% only once the limit is used up", () => {
+    expect(decide(input({ thresholdPercent: 98, usage: { B: usage(97), A: usage(0) } })).action).toBe("none");
+    expect(decide(input({ thresholdPercent: 98, usage: { B: usage(98), A: usage(0) } }))).toMatchObject({ action: "switch", toId: "A" });
+    expect(decide(input({ thresholdPercent: 100, usage: { B: usage(99), A: usage(0) } })).action).toBe("none");
+    expect(decide(input({ thresholdPercent: 100, usage: { B: usage(100), A: usage(0) } }))).toMatchObject({ action: "switch", toId: "A" });
+  });
+});

@@ -27,8 +27,24 @@ export function credentialFile(slot: ClaudeSlot): string {
   return path.join(slot.dir, CRED_FILE);
 }
 
-/** Reads the login the slot's Claude Code would use (Keychain first on macOS). */
-export async function readLive(slot: ClaudeSlot): Promise<LiveRead> {
+/** Recent reads per slot, so lookups do not spawn `security` every few seconds. */
+const recent = new Map<string, { at: number; read: LiveRead }>();
+
+/**
+ * Reads the login the slot's Claude Code would use (Keychain first on macOS). `maxAgeMs` > 0
+ * accepts a read that recent; anything that writes a slot reads it fresh (the default).
+ */
+export async function readLive(slot: ClaudeSlot, maxAgeMs = 0): Promise<LiveRead> {
+  const hit = recent.get(slot.service);
+  if (maxAgeMs > 0 && hit && Date.now() - hit.at < maxAgeMs) {
+    return hit.read;
+  }
+  const read = await readLiveUncached(slot);
+  recent.set(slot.service, { at: Date.now(), read });
+  return read;
+}
+
+async function readLiveUncached(slot: ClaudeSlot): Promise<LiveRead> {
   const file = credentialFile(slot);
   const fileExists = fs.existsSync(file);
   if (useKeychain()) {
@@ -49,6 +65,7 @@ export async function readLive(slot: ClaudeSlot): Promise<LiveRead> {
  * Code's write lock (and the refresh lock for a switch) around read-modify-write.
  */
 export async function writeLive(slot: ClaudeSlot, doc: CredentialDoc): Promise<void> {
+  recent.delete(slot.service);
   const text = JSON.stringify(doc);
   if (useKeychain()) {
     await writeGenericPassword(keychainAccount(), slot.service, text);
@@ -68,6 +85,7 @@ export async function writeLive(slot: ClaudeSlot, doc: CredentialDoc): Promise<v
 
 /** Removes the slot's login entirely (used when a slot is retired). */
 export async function clearLive(slot: ClaudeSlot): Promise<void> {
+  recent.delete(slot.service);
   if (useKeychain()) {
     await deleteGenericPassword(keychainAccount(), slot.service);
   }

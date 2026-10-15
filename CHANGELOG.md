@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.2 — 2026-10-15
+
+- Lighter on your machine: checks once a minute instead of every 15 s; the account in use reads
+  its quota every 5 min (2 min near the threshold), idle accounts every 30 min and right before a switch;
+  Keychain lookups are cached briefly.
+- Remove accounts from the AgentPool view (🗑 on each row), the quick view, or `AgentPool: Remove account`.
+- Auto switch threshold from 50 to 100% (default 95): `AgentPool: Set auto-switch threshold`, or click the % in the tooltip.
+
 ## 0.1.1 — 2026-10-15
 
 - Works right after install: the accounts you are signed in to are saved on first run.

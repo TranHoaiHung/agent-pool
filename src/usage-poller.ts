@@ -5,10 +5,16 @@ import { ordered } from "./core/priority";
 import { AccountMeta, maxUsed, PROVIDER_LABEL, ProviderId, UsageRecord } from "./core/types";
 import { HttpError } from "./providers/http";
 
-const TICK_MS = 15_000;
+const TICK_MS = 60_000;
 const RATE_LIMIT_BACKOFF_MS = 5 * 60_000;
 const ERROR_RETRY_MS = 60_000;
 const MANUAL_HOLD_MS = 30 * 60_000;
+
+/** The auto switch threshold from settings, 50–100 (default 95). */
+export function threshold(): number {
+  const value = vscode.workspace.getConfiguration("agentPool").get<number>("autoSwitch.thresholdPercent") ?? 95;
+  return Math.min(100, Math.max(50, Math.round(value)));
+}
 
 /**
  * Reads usage of every account on its provider's interval (the account in use more often
@@ -67,14 +73,19 @@ export class UsagePoller {
 
   private interval(account: AccountMeta): number {
     const cfg = vscode.workspace.getConfiguration("agentPool");
-    const base = account.provider === "claude"
-      ? Math.max(180, cfg.get<number>("claude.pollIntervalSeconds") ?? 240)
-      : Math.max(60, cfg.get<number>("codex.pollIntervalSeconds") ?? 120);
     const isActive = this.service.activeId(account.provider) === account.id;
+    if (!isActive) {
+      // Idle accounts change only when used; auto switch reads them again when it needs them.
+      return Math.max(10, cfg.get<number>("idlePollMinutes") ?? 30) * 60_000;
+    }
+    const base = account.provider === "claude"
+      ? Math.max(180, cfg.get<number>("claude.pollIntervalSeconds") ?? 300)
+      : Math.max(120, cfg.get<number>("codex.pollIntervalSeconds") ?? 300);
     const used = maxUsed(this.service.pool.get().usage[account.id]?.snapshot, Date.now()) ?? 0;
-    // The account in use is watched closer as it nears the threshold, never below 90s.
-    return (isActive && used >= 80 ? Math.max(90, base / 2) : base) * 1000;
+    // Watched closer within 10 points of the threshold, never more often than every 2 minutes.
+    return (used >= threshold() - 10 ? Math.max(120, base / 2) : base) * 1000;
   }
+
 
   private async read(account: AccountMeta, force: boolean): Promise<void> {
     const record: UsageRecord = this.service.pool.get().usage[account.id] ?? {};
@@ -127,13 +138,14 @@ export class UsagePoller {
     }
     const data = this.service.pool.get();
     const accounts = ordered(data, provider);
-    const intervalMs = accounts[0] ? this.interval(accounts[0]) : 240_000;
+    const active = accounts.find((a) => a.id === this.service.activeId(provider));
+    const intervalMs = active ? this.interval(active) : 300_000;
     const last = data.lastSwitch[provider];
     const decision = decide({
       accounts,
       usage: data.usage,
       activeId: this.service.activeId(provider),
-      thresholdPercent: Math.min(99, Math.max(50, cfg.get<number>("autoSwitch.thresholdPercent") ?? 95)),
+      thresholdPercent: threshold(),
       // Going back only undoes AgentPool's own move off a higher-priority account that was
       // full. Saving an account, or a manual switch, never triggers it.
       returnToPreferred:

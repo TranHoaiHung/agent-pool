@@ -17,6 +17,24 @@ function accountFrom(service: AccountService, arg: unknown): AccountMeta | undef
   return node?.kind === "account" ? service.account(node.account.id) : undefined;
 }
 
+/** Lets the person choose one saved account of any tool. */
+async function pickAccount(service: AccountService, placeHolder: string): Promise<AccountMeta | undefined> {
+  const data = service.pool.get();
+  const items = PROVIDERS.flatMap((p) =>
+    ordered(data, p).map((a) => ({
+      label: a.label,
+      description: `${PROVIDER_LABEL[p]}${service.activeId(p) === a.id ? " · in use" : ""}`,
+      detail: a.email,
+      account: a,
+    }))
+  );
+  if (items.length === 0) {
+    void vscode.window.showInformationMessage("No saved accounts.");
+    return undefined;
+  }
+  return (await vscode.window.showQuickPick(items, { placeHolder }))?.account;
+}
+
 async function pickProvider(arg: unknown, placeHolder: string): Promise<ProviderId | undefined> {
   if (arg === "claude" || arg === "codex") {
     return arg;
@@ -141,7 +159,7 @@ export function registerCommands(
   });
 
   reg("agentPool.remove", async (arg) => {
-    const account = accountFrom(service, arg);
+    const account = accountFrom(service, arg) ?? (await pickAccount(service, "Remove which account from AgentPool?"));
     if (!account) return;
     const live = service.activeId(account.provider) === account.id;
     const ok = await vscode.window.showWarningMessage(
@@ -165,6 +183,20 @@ export function registerCommands(
   reg("agentPool.toggleRotation", async (arg) => {
     const account = accountFrom(service, arg);
     if (account) await service.update(account.id, (a) => (a.inRotation = !a.inRotation));
+  });
+
+  reg("agentPool.setThreshold", async () => {
+    const cfg = vscode.workspace.getConfiguration("agentPool");
+    const current = cfg.get<number>("autoSwitch.thresholdPercent") ?? 95;
+    const value = await vscode.window.showInputBox({
+      title: "Auto switch threshold",
+      prompt: "Switch away when any limit of the account in use reaches this share (50–100). Higher uses more of each account but leaves less margin.",
+      value: String(current),
+      validateInput: (v) => (/^\d+$/.test(v.trim()) && +v >= 50 && +v <= 100 ? undefined : "Enter a whole number from 50 to 100"),
+    });
+    if (value === undefined) return;
+    await cfg.update("autoSwitch.thresholdPercent", Number(value), vscode.ConfigurationTarget.Global);
+    void vscode.window.showInformationMessage(`AgentPool switches at ${Number(value)}%.`);
   });
 
   reg("agentPool.toggleAutoSwitch", async () => {

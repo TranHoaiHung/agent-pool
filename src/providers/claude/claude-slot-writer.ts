@@ -24,10 +24,10 @@ export class ClaudeSlotWriter {
   /** Puts `account`'s parked login into `slot`. Returns notes for the user. */
   async swapIn(slot: ClaudeSlot, account: AccountMeta): Promise<string[]> {
     // Already there: writing the vault copy over the live one could put back a spent token.
-    let before = await this.index.owner(slot);
+    let before = await this.index.owner(slot, true);
     if (before.unresolved && before.oauth && isExpiring(before.oauth)) {
       await this.renewUnidentified(slot);
-      before = await this.index.owner(slot);
+      before = await this.index.owner(slot, true);
     }
     if (before.unresolved) {
       throw new UnresolvedLoginError();
@@ -151,7 +151,7 @@ export class ClaudeSlotWriter {
    */
   private async park(slot: ClaudeSlot, oauth: ClaudeOAuth): Promise<void> {
     this.index.invalidate(slot.dir);
-    const owner = await this.index.owner(slot);
+    const owner = await this.index.owner(slot, true);
     if (owner.accountId) {
       await this.index.sync(owner.accountId, oauth);
       return;

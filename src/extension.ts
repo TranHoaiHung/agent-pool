@@ -15,7 +15,7 @@ import { RatingPrompt } from "./ui/rating-prompt";
 import { StatusBar } from "./ui/status-bar";
 import { UsagePoller } from "./usage-poller";
 
-const FOLLOWER_REFRESH_MS = 20_000;
+const FOLLOWER_REFRESH_MS = 60_000;
 
 export function activate(context: vscode.ExtensionContext): void {
   const output = vscode.window.createOutputChannel("AgentPool");
