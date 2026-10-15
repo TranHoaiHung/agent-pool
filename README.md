@@ -1,14 +1,18 @@
 <p align="center"><img src="docs/images/hero.png" alt="AgentPool — many AI coding accounts, one VS Code" width="100%"></p>
 
 <p align="center">
-  <a href="https://github.com/TranHoaiHung/agent-pool/releases"><img alt="Release" src="https://img.shields.io/github/v/release/TranHoaiHung/agent-pool?label=release"></a>
-  <img alt="VS Code" src="https://img.shields.io/badge/VS%20Code-%E2%89%A51.90-007ACC">
+  <a href="https://marketplace.visualstudio.com/items?itemName=TranHoaiHung.agent-pool"><img alt="Marketplace version" src="https://img.shields.io/visual-studio-marketplace/v/TranHoaiHung.agent-pool?label=Marketplace&color=007ACC"></a>
+  <a href="https://marketplace.visualstudio.com/items?itemName=TranHoaiHung.agent-pool"><img alt="Installs" src="https://img.shields.io/visual-studio-marketplace/i/TranHoaiHung.agent-pool"></a>
+  <a href="https://marketplace.visualstudio.com/items?itemName=TranHoaiHung.agent-pool&ssr=false#review-details"><img alt="Rating" src="https://img.shields.io/visual-studio-marketplace/r/TranHoaiHung.agent-pool"></a>
+  <a href="https://github.com/TranHoaiHung/agent-pool"><img alt="GitHub stars" src="https://img.shields.io/github/stars/TranHoaiHung/agent-pool?style=flat"></a>
   <img alt="Claude Code" src="https://img.shields.io/badge/Claude%20Code-supported-D97757">
   <img alt="Codex" src="https://img.shields.io/badge/Codex-supported-10A37F">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-blue">
 </p>
 
-# AgentPool — AI Account Switcher
+# AgentPool — Claude Code & Codex Account Switcher
+
+> If AgentPool saves you from a usage limit, please **[⭐ rate it on the Marketplace](https://marketplace.visualstudio.com/items?itemName=TranHoaiHung.agent-pool&ssr=false#review-details)** and **[star it on GitHub](https://github.com/TranHoaiHung/agent-pool)** — it helps other developers find it.
 
 Manage several **Claude Code** and **Codex** accounts in VS Code:
 
@@ -37,10 +41,9 @@ Manage several **Claude Code** and **Codex** accounts in VS Code:
 
 ## Quick start
 
-1. Install AgentPool and reload the window.
-2. Open the **AgentPool** view (Activity Bar) → **Save current login** for Claude Code and/or Codex.
-3. **Add account** (＋) for each other account: it signs in through an isolated login, the account in use is untouched.
-4. Drag accounts into the order you want. Done — hover the status bar to watch quotas.
+1. **Install** AgentPool. It saves the Claude Code / Codex accounts you are already signed in to, and the status bar shows their quota right away.
+2. **Add account** (＋ in the AgentPool view, or the welcome message) for each other account. It signs in through an isolated login in a terminal + your browser; the account in use is untouched. No CLI to install: AgentPool uses the `claude` / `codex` that ships with the official extensions.
+3. **Drag** accounts into the order you want. Done — hover the status bar to watch quotas; auto switch handles the rest.
 
 ## Claude Code: switch scope
 
@@ -72,6 +75,14 @@ Never use Claude's `/login` or **Log out**, or `codex login`/`codex logout` on t
 - The outgoing login is always parked (saved) before anything overwrites it; a login nobody saved is enrolled automatically.
 - Live logins are never renewed behind the owning tool's back; parked logins are renewed by AgentPool only.
 - Only `claudeAiOauth` of Claude Code's credential document is swapped; MCP server tokens stay.
+
+## Support the project
+
+AgentPool is free and open source. The best ways to help:
+
+- ⭐ **[Rate it on the VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=TranHoaiHung.agent-pool&ssr=false#review-details)**
+- 🌟 **[Star the repo on GitHub](https://github.com/TranHoaiHung/agent-pool)**
+- 🐞 **[Report a bug or ask for a feature](https://github.com/TranHoaiHung/agent-pool/issues)**
 
 ## Privacy
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1 — 2026-10-15
+
+- Works right after install: the accounts you are signed in to are saved on first run.
+- "Add account" no longer needs a CLI on PATH: uses the `claude` / `codex` bundled with the official extensions.
+- Marketplace listing: AI category, clearer name and keywords.
+- An optional, at-most-twice rating prompt after AgentPool has been useful for a few days.
+
 ## 0.1.0 — 2026-10-15
 
 - Claude Code and Codex accounts: save current login, add accounts through an isolated login.

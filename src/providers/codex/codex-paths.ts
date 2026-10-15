@@ -1,7 +1,7 @@
-import { execFileSync } from "child_process";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
+import { extensionDirs, onPath } from "../cli-locator";
 
 export function codexHome(): string {
   const env = process.env.CODEX_HOME;
@@ -54,23 +54,12 @@ export function findCodexBinary(setting: string | undefined): string | undefined
   if (setting) {
     return setting;
   }
-  try {
-    const found = execFileSync("/bin/sh", ["-lc", "command -v codex"], { timeout: 5_000 }).toString().trim();
-    if (found) {
-      return found;
-    }
-  } catch {
-    /* not on PATH */
+  const found = onPath("codex");
+  if (found) {
+    return found;
   }
-  const extDir = path.join(os.homedir(), ".vscode", "extensions");
-  let candidates: string[] = [];
-  try {
-    candidates = fs.readdirSync(extDir).filter((n) => n.startsWith("openai.chatgpt-")).sort().reverse();
-  } catch {
-    return undefined;
-  }
-  for (const ext of candidates) {
-    const bin = path.join(extDir, ext, "bin");
+  for (const ext of extensionDirs("openai.chatgpt-")) {
+    const bin = path.join(ext, "bin");
     try {
       for (const platformDir of fs.readdirSync(bin)) {
         const exe = path.join(bin, platformDir, process.platform === "win32" ? "codex.exe" : "codex");

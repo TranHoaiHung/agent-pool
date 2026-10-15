@@ -1,7 +1,9 @@
 import * as crypto from "crypto";
+import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { poolHome } from "../../core/pool-store";
+import { extensionDirs, onPath } from "../cli-locator";
 
 export const LIVE_SERVICE = "Claude Code-credentials";
 export const CRED_FILE = ".credentials.json";
@@ -72,4 +74,25 @@ function safeUsername(): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+/**
+ * The Claude Code CLI: the setting, `claude` on PATH, or the native binary the Claude Code
+ * extension ships with — so "Add account" works for people who never installed the CLI.
+ */
+export function findClaudeBinary(setting: string | undefined): string | undefined {
+  if (setting) {
+    return setting;
+  }
+  const found = onPath("claude");
+  if (found) {
+    return found;
+  }
+  for (const ext of extensionDirs("anthropic.claude-code-")) {
+    const exe = path.join(ext, "resources", "native-binary", process.platform === "win32" ? "claude.exe" : "claude");
+    if (fs.existsSync(exe)) {
+      return exe;
+    }
+  }
+  return undefined;
 }

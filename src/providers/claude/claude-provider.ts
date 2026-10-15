@@ -8,7 +8,7 @@ import { Place, Provider, ProviderContext, SwitchOutcome, waitFor } from "../pro
 import { fetchClaudeIdentity, fetchClaudeUsage, isExpiring } from "./claude-api";
 import { clearLive, readLive } from "./claude-credential-store";
 import { ClaudeLiveIndex, UnresolvedLoginError } from "./claude-live-index";
-import { ClaudeSlot, globalSlot, slotForDir, vscodeSlot } from "./claude-paths";
+import { ClaudeSlot, findClaudeBinary, globalSlot, slotForDir, vscodeSlot } from "./claude-paths";
 import { ClaudeSlotWriter } from "./claude-slot-writer";
 import { VscodeScope } from "./vscode-scope";
 
@@ -129,13 +129,16 @@ export class ClaudeProvider implements Provider {
     const dir = path.join(poolHome(), `login-${Date.now()}`);
     fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
     const slot = slotForDir("login", dir);
-    const command = vscode.workspace.getConfiguration("agentPool").get<string>("claudeCommand") || "claude";
+    const command = findClaudeBinary(vscode.workspace.getConfiguration("agentPool").get<string>("claudeCommand"));
+    if (!command) {
+      throw new Error("Claude Code CLI not found. Install the Claude Code extension or CLI, or set agentPool.claudeCommand.");
+    }
     const terminal = vscode.window.createTerminal({
       name: "AgentPool: Claude login",
       env: { CLAUDE_CONFIG_DIR: dir },
     });
     terminal.show();
-    terminal.sendText(`${command} auth login`);
+    terminal.sendText(`${shellQuote(command)} auth login`);
     try {
       const oauth = await waitFor(async () => (await readLive(slot)).doc?.claudeAiOauth, cancel, 10 * 60_000);
       const identity = await fetchClaudeIdentity(oauth.accessToken);
@@ -171,4 +174,8 @@ export class ClaudeProvider implements Provider {
     // Parked: AgentPool alone holds it; renewed under its cross-window lock.
     return (await this.writer.freshParked(account)).accessToken;
   }
+}
+
+function shellQuote(s: string): string {
+  return /^[A-Za-z0-9_./-]+$/.test(s) ? s : `'${s.replace(/'/g, `'\\''`)}'`;
 }

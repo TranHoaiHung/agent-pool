@@ -1,8 +1,8 @@
 {
   "name": "agent-pool",
-  "displayName": "AgentPool — AI Account Switcher",
-  "description": "Manage several Claude Code and Codex accounts: live quota on hover, one-click switching, priority order and automatic switching before an account runs out.",
-  "version": "0.1.0",
+  "displayName": "AgentPool — Claude Code & Codex Account Switcher",
+  "description": "Switch Claude Code & Codex accounts in one click, see every account's quota on hover, and auto-switch before you hit a limit.",
+  "version": "0.1.1",
   "publisher": "tranhoaihung",
   "license": "MIT",
   "repository": {
@@ -13,21 +13,33 @@
     "url": "https://github.com/TranHoaiHung/agent-pool/issues"
   },
   "homepage": "https://github.com/TranHoaiHung/agent-pool#readme",
+  "qna": "https://github.com/TranHoaiHung/agent-pool/issues",
   "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#0B1020",
+    "theme": "dark"
+  },
   "preview": true,
   "engines": {
     "vscode": "^1.90.0"
   },
   "categories": [
+    "AI",
     "Other"
   ],
   "keywords": [
-    "claude",
     "claude code",
+    "claude",
+    "anthropic",
     "codex",
-    "account",
+    "openai",
+    "chatgpt",
     "quota",
-    "switcher"
+    "usage limit",
+    "rate limit",
+    "multi account",
+    "account switcher",
+    "ai coding"
   ],
   "main": "./dist/extension.js",
   "activationEvents": [
@@ -314,8 +326,8 @@
         },
         "agentPool.claudeCommand": {
           "type": "string",
-          "default": "claude",
-          "description": "Claude Code CLI used for isolated logins."
+          "default": "",
+          "description": "Claude Code CLI used for isolated logins. Empty: `claude` on PATH, else the binary bundled with the Claude Code extension."
         },
         "agentPool.codexCommand": {
           "type": "string",

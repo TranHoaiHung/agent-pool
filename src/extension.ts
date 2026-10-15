@@ -10,6 +10,8 @@ import { VscodeScope } from "./providers/claude/vscode-scope";
 import { CodexProvider } from "./providers/codex/codex-provider";
 import { AccountsTree } from "./ui/accounts-tree";
 import { registerCommands, reportOutcome } from "./ui/commands";
+import { onboard } from "./ui/onboarding";
+import { RatingPrompt } from "./ui/rating-prompt";
 import { StatusBar } from "./ui/status-bar";
 import { UsagePoller } from "./usage-poller";
 
@@ -57,6 +59,8 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   });
 
+  const rating = new RatingPrompt(context.globalState);
+  service.onSwitched(() => void rating.recordSwitch());
   pool.onChange(rerender);
   pool.watch();
   service.onActiveChange(() => void statusBar.refreshPlaces());
@@ -88,7 +92,10 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   leader.start();
-  void service.refreshActive().then(() => statusBar.refreshPlaces());
+  void onboard(service, context.globalState)
+    .catch((e: Error) => log(`onboarding failed: ${e.message}`))
+    .then(() => service.refreshActive())
+    .then(() => statusBar.refreshPlaces());
   rerender();
 }
 
