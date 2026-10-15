@@ -100,7 +100,13 @@ export function registerCommands(
     if (!provider) return;
     const meta = await service.saveCurrent(provider);
     void vscode.window.showInformationMessage(
-      meta ? `Saved ${PROVIDER_LABEL[provider]} account "${meta.label}".` : `No ${PROVIDER_LABEL[provider]} login found.`
+      meta
+        ? `Saved ${PROVIDER_LABEL[provider]} account "${meta.label}".`
+        : `No ${PROVIDER_LABEL[provider]} login found. Sign in to ${PROVIDER_LABEL[provider]} first${
+            provider === "claude" && process.platform === "win32"
+              ? " (on Windows AgentPool reads %USERPROFILE%\\.claude\\.credentials.json)"
+              : ""
+          }.`
     );
     void poller()?.refreshAll();
   });

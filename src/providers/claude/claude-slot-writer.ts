@@ -1,4 +1,5 @@
 import * as fs from "fs";
+import { replaceFile } from "../../core/fs-utils";
 import { refreshLocks, withLocks, writeLock } from "../../core/dir-lock";
 import { AccountMeta, ClaudeOAuth, Identity } from "../../core/types";
 import { HttpError } from "../http";
@@ -210,7 +211,7 @@ export class ClaudeSlotWriter {
       }
       const tmp = `${slot.configFile}.agent-pool.tmp`;
       fs.writeFileSync(tmp, text, { mode: 0o600 });
-      fs.renameSync(tmp, slot.configFile);
+      replaceFile(tmp, slot.configFile);
     } catch (e) {
       this.ctx.log(`Could not update oauthAccount in ${slot.configFile}: ${(e as Error).message}`);
     }

@@ -72,6 +72,8 @@ The VS Code slot links your `~/.claude` items (CLAUDE.md, agents, skills, comman
 
 One login is never live in two slots: both would spend the same single-use refresh token.
 
+**Windows and Linux:** Claude Code keeps its login in `.credentials.json` instead of the Keychain; AgentPool switches that file the same way. On Windows, shared folders are linked as junctions (no admin rights or Developer Mode needed) and shared files as hard links or refreshed copies.
+
 ## Codex
 
 The login is `~/.codex/auth.json` (`CODEX_HOME` respected; only the `file` credential store is supported). A running Codex keeps its login until restarted, so a switch offers **Reload Window**; restart `codex` in terminals yourself.

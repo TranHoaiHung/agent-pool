@@ -1,10 +1,12 @@
 import * as fs from "fs";
+import { replaceFile } from "../../core/fs-utils";
 import * as path from "path";
 import * as vscode from "vscode";
 import { poolHome } from "../../core/pool-store";
 import { AccountMeta, CodexAuth, UsageSnapshot } from "../../core/types";
 import { withLocks } from "../../core/dir-lock";
 import { fingerprint } from "../../core/secret-vault";
+import { cliTerminal } from "../cli-locator";
 import { accountsOf, lockAccount, Place, Provider, ProviderContext, SwitchOutcome, waitFor } from "../provider";
 import { codexIdentity, fetchCodexUsage, isCodexTokenExpiring, refreshCodex } from "./codex-api";
 import { authFile, codexHome, configuredStore, findCodexBinary } from "./codex-paths";
@@ -99,10 +101,14 @@ export class CodexProvider implements Provider {
     }
     const home = path.join(poolHome(), `codex-login-${Date.now()}`);
     fs.mkdirSync(home, { recursive: true, mode: 0o700 });
-    const terminal = vscode.window.createTerminal({ name: "AgentPool: Codex login", cwd: home, env: { CODEX_HOME: home } });
-    terminal.show();
     // `-c` before `login` forces the file store over any config layer the person has.
-    terminal.sendText(`${shellQuote(binary)} -c cli_auth_credentials_store="file" login`);
+    const terminal = vscode.window.createTerminal({
+      name: "AgentPool: Codex login",
+      cwd: home,
+      env: { CODEX_HOME: home },
+      ...cliTerminal(binary, ["-c", 'cli_auth_credentials_store="file"', "login"]),
+    });
+    terminal.show();
     try {
       const auth = await waitFor(async () => {
         const a = readAuth(home);
@@ -196,9 +202,5 @@ function writeAuth(auth: CodexAuth): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const tmp = `${file}.agent-pool.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(auth, null, 2), { mode: 0o600 });
-  fs.renameSync(tmp, file);
-}
-
-function shellQuote(s: string): string {
-  return /^[A-Za-z0-9_./-]+$/.test(s) ? s : `'${s.replace(/'/g, `'\\''`)}'`;
+  replaceFile(tmp, file);
 }

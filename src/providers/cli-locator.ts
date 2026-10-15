@@ -3,14 +3,32 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 
-/** A command found on the login shell's PATH (VS Code started from the Dock has a short PATH). */
+/**
+ * A command found on PATH: the login shell's on macOS/Linux (VS Code started from the Dock
+ * has a short PATH), `where.exe` on Windows (first match; npm installs a `.cmd` there).
+ */
 export function onPath(name: string): string | undefined {
   try {
-    const found = execFileSync("/bin/sh", ["-lc", `command -v ${name}`], { timeout: 5_000 }).toString().trim();
-    return found || undefined;
+    const found =
+      process.platform === "win32"
+        ? execFileSync("where.exe", [name], { timeout: 5_000 }).toString().split(/\r?\n/)[0]
+        : execFileSync("/bin/sh", ["-lc", `command -v ${name}`], { timeout: 5_000 }).toString();
+    return found.trim() || undefined;
   } catch {
     return undefined;
   }
+}
+
+/**
+ * Terminal options that run `binary args` directly, with no shell in between, so nothing
+ * depends on quoting rules (bash, zsh, PowerShell and cmd all differ). Windows batch files
+ * (`claude.cmd` from npm) need cmd.exe to run.
+ */
+export function cliTerminal(binary: string, args: string[]): { shellPath: string; shellArgs: string[] } {
+  if (process.platform === "win32" && /\.(cmd|bat)$/i.test(binary)) {
+    return { shellPath: process.env.ComSpec || "cmd.exe", shellArgs: ["/d", "/c", binary, ...args] };
+  }
+  return { shellPath: binary, shellArgs: args };
 }
 
 /** Installed extension folders starting with `prefix`, newest version first. */

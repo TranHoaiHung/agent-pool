@@ -1,4 +1,5 @@
 import * as fs from "fs";
+import { replaceFile } from "./fs-utils";
 import * as os from "os";
 import * as path from "path";
 import { withLocks } from "./dir-lock";
@@ -42,7 +43,7 @@ export class PoolStore {
       const text = JSON.stringify(this.data, null, 2);
       const tmp = `${this.file}.${process.pid}.tmp`;
       fs.writeFileSync(tmp, text, { mode: 0o600 });
-      fs.renameSync(tmp, this.file);
+      replaceFile(tmp, this.file);
       this.lastText = text;
     });
     this.emit();

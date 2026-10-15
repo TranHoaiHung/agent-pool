@@ -1,4 +1,5 @@
 import * as fs from "fs";
+import { replaceFile } from "./fs-utils";
 import * as path from "path";
 import { withLocks } from "./dir-lock";
 import { poolHome } from "./pool-store";
@@ -59,7 +60,7 @@ export class LeaderLock {
         }
         const tmp = `${this.file}.${this.id}.tmp`;
         fs.writeFileSync(tmp, JSON.stringify({ id: this.id, at: Date.now() }));
-        fs.renameSync(tmp, this.file);
+        replaceFile(tmp, this.file);
         return true;
       });
     } catch {

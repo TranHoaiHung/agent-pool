@@ -1,4 +1,5 @@
 import * as fs from "fs";
+import { replaceFile } from "../../core/fs-utils";
 import * as path from "path";
 import { ClaudeOAuth } from "../../core/types";
 import { ClaudeSlot, CRED_FILE, keychainAccount } from "./claude-paths";
@@ -79,7 +80,7 @@ export async function writeLive(slot: ClaudeSlot, doc: CredentialDoc): Promise<v
   const file = credentialFile(slot);
   const tmp = `${file}.agent-pool.tmp`;
   fs.writeFileSync(tmp, text, { mode: 0o600 });
-  fs.renameSync(tmp, file);
+  replaceFile(tmp, file);
   fs.chmodSync(file, 0o600);
 }
 

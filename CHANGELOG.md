@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.3 — 2026-10-15
+
+- Windows: no more `EPERM … symlink` when switching Claude Code in VS Code only. Shared folders
+  of `~/.claude` become junctions (no admin rights needed); shared files fall back to a hard link
+  or a copy that is refreshed when the original changes. One item that cannot be shared no longer
+  stops the switch.
+- Windows: "Add account" finds `claude`/`codex` with `where.exe` and runs the sign-in without a
+  shell, so it works in PowerShell and cmd (and with npm's `claude.cmd`).
+- Windows: file replacements retry briefly while another program has the file open.
+
 ## 0.1.2 — 2026-10-15
 
 - Lighter on your machine: checks once a minute instead of every 15 s; the account in use reads

@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import * as vscode from "vscode";
+import { LinkKind, linkShared, refreshCopy } from "../../core/fs-utils";
 import { vscodeSlotDir } from "./claude-paths";
 
 const ENV_NAME = "CLAUDE_CONFIG_DIR";
@@ -12,6 +13,8 @@ const ENV_NAME = "CLAUDE_CONFIG_DIR";
  * fixed, so the variable is set once; later switches only rewrite the slot's login.
  */
 export class VscodeScope {
+  constructor(private readonly log: (message: string) => void = () => undefined) {}
+
   /** Claude Code in VS Code currently uses AgentPool's own slot. */
   isActive(): boolean {
     return this.envEntries().some((e) => e.name === ENV_NAME && e.value === vscodeSlotDir());
@@ -39,23 +42,38 @@ export class VscodeScope {
     await this.updateTerminalEnv(false);
   }
 
-  /** Re-links shared items (cheap; run on activation to pick up new ones). */
+  /**
+   * Links the shared items of ~/.claude into the slot (re-run on activation to pick up new
+   * ones and refresh Windows copies). One item that cannot be linked never stops the rest.
+   */
   prepareFolder(): void {
     const dir = vscodeSlotDir();
     const home = path.join(os.homedir(), ".claude");
     fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+    const ledgerFile = path.join(dir, ".agent-pool-links.json");
+    const ledger = readLedger(ledgerFile);
     const items = vscode.workspace.getConfiguration("agentPool").get<string[]>("claude.sharedItems") ?? [];
     for (const item of items) {
       const source = path.join(home, item);
       const link = path.join(dir, item);
-      if (!fs.existsSync(source) || isSymlink(link)) {
-        continue;
+      try {
+        if (!fs.existsSync(source) || isSymlink(link)) {
+          continue;
+        }
+        if (fs.existsSync(link)) {
+          // A copy or hard link AgentPool made (Windows) follows the source; any other real
+          // file belongs to the slot and is never overwritten.
+          if (ledger[item] === "copy" || ledger[item] === "hardlink") {
+            refreshCopy(source, link);
+          }
+          continue;
+        }
+        ledger[item] = linkShared(source, link);
+      } catch (e) {
+        this.log(`Could not share ~/.claude/${item} with the VS Code slot: ${(e as Error).message}`);
       }
-      if (fs.existsSync(link)) {
-        continue; // a real file the slot already owns; never overwrite it
-      }
-      fs.symlinkSync(source, link);
     }
+    fs.writeFileSync(ledgerFile, JSON.stringify(ledger, null, 2));
     // Seed Claude Code's config (MCP servers, onboarding state) once; it diverges after.
     const config = path.join(dir, ".claude.json");
     const globalConfig = path.join(os.homedir(), ".claude.json");
@@ -64,6 +82,7 @@ export class VscodeScope {
       fs.chmodSync(config, 0o600);
     }
   }
+
 
   /** Items in ~/.claude that the slot does not link (shown as a hint). */
   unlinkedItems(): string[] {
@@ -107,5 +126,13 @@ function isSymlink(p: string): boolean {
     return fs.lstatSync(p).isSymbolicLink();
   } catch {
     return false;
+  }
+}
+
+function readLedger(file: string): Record<string, LinkKind> {
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8")) as Record<string, LinkKind>;
+  } catch {
+    return {};
   }
 }

@@ -3,6 +3,7 @@ import * as path from "path";
 import * as vscode from "vscode";
 import { poolHome } from "../../core/pool-store";
 import { AccountMeta, UsageSnapshot } from "../../core/types";
+import { cliTerminal } from "../cli-locator";
 import { HttpError } from "../http";
 import { Place, Provider, ProviderContext, SwitchOutcome, waitFor } from "../provider";
 import { fetchClaudeIdentity, fetchClaudeUsage, isExpiring } from "./claude-api";
@@ -136,9 +137,9 @@ export class ClaudeProvider implements Provider {
     const terminal = vscode.window.createTerminal({
       name: "AgentPool: Claude login",
       env: { CLAUDE_CONFIG_DIR: dir },
+      ...cliTerminal(command, ["auth", "login"]),
     });
     terminal.show();
-    terminal.sendText(`${shellQuote(command)} auth login`);
     try {
       const oauth = await waitFor(async () => (await readLive(slot)).doc?.claudeAiOauth, cancel, 10 * 60_000);
       const identity = await fetchClaudeIdentity(oauth.accessToken);
@@ -174,8 +175,4 @@ export class ClaudeProvider implements Provider {
     // Parked: AgentPool alone holds it; renewed under its cross-window lock.
     return (await this.writer.freshParked(account)).accessToken;
   }
-}
-
-function shellQuote(s: string): string {
-  return /^[A-Za-z0-9_./-]+$/.test(s) ? s : `'${s.replace(/'/g, `'\\''`)}'`;
 }

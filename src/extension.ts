@@ -23,7 +23,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const pool = new PoolStore();
   const service = new AccountService(pool, new VsSecretVault(context.secrets), log);
-  const scope = new VscodeScope();
+  const scope = new VscodeScope(log);
   service.register(new ClaudeProvider(service.providerContext(), scope));
   service.register(new CodexProvider(service.providerContext()));
   removeStaleLogins(log);

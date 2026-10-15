@@ -2,7 +2,7 @@
   "name": "agent-pool",
   "displayName": "AgentPool — AI Account Switcher",
   "description": "Switch Claude Code & Codex accounts in one click, see every account's quota on hover, and auto-switch before you hit a limit.",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "publisher": "tranhoaihung",
   "license": "MIT",
   "repository": {
