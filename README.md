@@ -10,7 +10,9 @@
   <img alt="License" src="https://img.shields.io/badge/license-MIT-blue">
 </p>
 
-# AgentPool — Claude Code & Codex Account Switcher
+# AgentPool — AI Account Switcher
+
+One account switcher for your Claude Code and Codex subscriptions, inside VS Code.
 
 > If AgentPool saves you from a usage limit, please **[⭐ rate it on the Marketplace](https://marketplace.visualstudio.com/items?itemName=TranHoaiHung.agent-pool&ssr=false#review-details)** and **[star it on GitHub](https://github.com/TranHoaiHung/agent-pool)** — it helps other developers find it.
 
