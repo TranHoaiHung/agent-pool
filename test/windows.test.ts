@@ -66,3 +66,15 @@ describe("replaceFile", () => {
     expect(fs.existsSync(path.join(d, "t"))).toBe(false);
   });
 });
+
+describe("cliTerminal on macOS/Linux", () => {
+  it("runs a #! script (npm's claude) from a login shell so node is on PATH", () => {
+    if (process.platform === "win32") return;
+    const d = fs.mkdtempSync(path.join(os.tmpdir(), "ap-sh-"));
+    const script = path.join(d, "claude");
+    fs.writeFileSync(script, "#!/usr/bin/env node\n", { mode: 0o755 });
+    const t = cliTerminal(script, ["auth", "login"]);
+    expect(t.shellArgs).toEqual(["-ilc", 'exec "$0" "$@"', script, "auth", "login"]);
+    expect(t.shellPath).toMatch(/\/(zsh|bash|sh)$/);
+  });
+});

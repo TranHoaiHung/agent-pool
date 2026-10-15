@@ -77,16 +77,12 @@ function safeUsername(): string | undefined {
 }
 
 /**
- * The Claude Code CLI: the setting, `claude` on PATH, or the native binary the Claude Code
- * extension ships with — so "Add account" works for people who never installed the CLI.
+ * The Claude Code CLI: the setting, else the native binary the Claude Code extension ships
+ * with (self-contained: no Node or PATH needed), else `claude` on PATH.
  */
 export function findClaudeBinary(setting: string | undefined): string | undefined {
   if (setting) {
     return setting;
-  }
-  const found = onPath("claude");
-  if (found) {
-    return found;
   }
   for (const ext of extensionDirs("anthropic.claude-code-")) {
     const exe = path.join(ext, "resources", "native-binary", process.platform === "win32" ? "claude.exe" : "claude");
@@ -94,5 +90,5 @@ export function findClaudeBinary(setting: string | undefined): string | undefine
       return exe;
     }
   }
-  return undefined;
+  return onPath("claude");
 }

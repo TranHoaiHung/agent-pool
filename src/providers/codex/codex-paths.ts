@@ -49,14 +49,13 @@ export function readTopLevelKey(file: string, key: string): string | undefined {
   return undefined;
 }
 
-/** The Codex CLI: the setting, `codex` on PATH, or the binary bundled with the extension. */
+/**
+ * The Codex CLI: the setting, else the native binary bundled with the ChatGPT/Codex
+ * extension (no PATH needed), else `codex` on PATH.
+ */
 export function findCodexBinary(setting: string | undefined): string | undefined {
   if (setting) {
     return setting;
-  }
-  const found = onPath("codex");
-  if (found) {
-    return found;
   }
   for (const ext of extensionDirs("openai.chatgpt-")) {
     const bin = path.join(ext, "bin");
@@ -71,5 +70,5 @@ export function findCodexBinary(setting: string | undefined): string | undefined
       /* layout differs */
     }
   }
-  return undefined;
+  return onPath("codex");
 }

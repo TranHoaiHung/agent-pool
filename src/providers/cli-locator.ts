@@ -25,10 +25,38 @@ export function onPath(name: string): string | undefined {
  * (`claude.cmd` from npm) need cmd.exe to run.
  */
 export function cliTerminal(binary: string, args: string[]): { shellPath: string; shellArgs: string[] } {
-  if (process.platform === "win32" && /\.(cmd|bat)$/i.test(binary)) {
-    return { shellPath: process.env.ComSpec || "cmd.exe", shellArgs: ["/d", "/c", binary, ...args] };
+  if (process.platform === "win32") {
+    return /\.(cmd|bat)$/i.test(binary)
+      ? { shellPath: process.env.ComSpec || "cmd.exe", shellArgs: ["/d", "/c", binary, ...args] }
+      : { shellPath: binary, shellArgs: args };
+  }
+  if (isScript(binary)) {
+    // A script (`#!/usr/bin/env node`, npm's claude) needs the person's PATH, which VS Code
+    // started from the Dock lacks: run it from a login shell; "$0" "$@" keep it unquoted.
+    return { shellPath: loginShell(), shellArgs: ["-ilc", 'exec "$0" "$@"', binary, ...args] };
   }
   return { shellPath: binary, shellArgs: args };
+}
+
+function isScript(file: string): boolean {
+  try {
+    const fd = fs.openSync(file, "r");
+    const head = Buffer.alloc(2);
+    fs.readSync(fd, head, 0, 2, 0);
+    fs.closeSync(fd);
+    return head.toString() === "#!";
+  } catch {
+    return false;
+  }
+}
+
+/** The person's shell when it understands `-ilc` and "$@"; zsh/bash otherwise. */
+function loginShell(): string {
+  const shell = process.env.SHELL ?? "";
+  if (/\/(zsh|bash|sh)$/.test(shell) && fs.existsSync(shell)) {
+    return shell;
+  }
+  return fs.existsSync("/bin/zsh") ? "/bin/zsh" : "/bin/bash";
 }
 
 /** Installed extension folders starting with `prefix`, newest version first. */

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.4 — 2026-10-15
+
+- Fix "Add account" failing with exit code 127 when `claude` on PATH is npm's Node script and
+  VS Code (started from the Dock) has no `node` on its PATH. AgentPool now prefers the
+  self-contained binary bundled with the official Claude Code / Codex extensions, and runs any
+  script launcher from your login shell so your PATH (nvm, Homebrew) applies.
+
 ## 0.1.3 — 2026-10-15
 
 - Windows: no more `EPERM … symlink` when switching Claude Code in VS Code only. Shared folders
