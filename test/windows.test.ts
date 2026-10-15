@@ -27,7 +27,7 @@ describe("cliTerminal", () => {
 });
 
 describe("linkShared", () => {
-  it("symlinks on macOS/Linux", () => {
+  it.skipIf(realPlatform === "win32")("symlinks on macOS/Linux", () => {
     const d = tmp();
     fs.writeFileSync(path.join(d, "a.md"), "x");
     expect(linkShared(path.join(d, "a.md"), path.join(d, "b.md"))).toBe("symlink");

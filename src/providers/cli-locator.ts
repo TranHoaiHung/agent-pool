@@ -9,10 +9,13 @@ import * as path from "path";
  */
 export function onPath(name: string): string | undefined {
   try {
-    const found =
-      process.platform === "win32"
-        ? execFileSync("where.exe", [name], { timeout: 5_000 }).toString().split(/\r?\n/)[0]
-        : execFileSync("/bin/sh", ["-lc", `command -v ${name}`], { timeout: 5_000 }).toString();
+    if (process.platform === "win32") {
+      // npm puts `claude` (a sh script), `claude.cmd` and `claude.ps1` side by side; only an
+      // .exe or a batch file can be launched.
+      const lines = execFileSync("where.exe", [name], { timeout: 5_000 }).toString().split(/\r?\n/);
+      return lines.map((l) => l.trim()).find((l) => /\.(exe|cmd|bat)$/i.test(l));
+    }
+    const found = execFileSync("/bin/sh", ["-lc", `command -v ${name}`], { timeout: 5_000 }).toString();
     return found.trim() || undefined;
   } catch {
     return undefined;
@@ -59,25 +62,37 @@ function loginShell(): string {
   return fs.existsSync("/bin/zsh") ? "/bin/zsh" : "/bin/bash";
 }
 
-/** Installed extension folders starting with `prefix`, newest version first. */
+/**
+ * Folders where the running editor keeps extensions: the one AgentPool itself was installed
+ * in (VS Code, Insiders, Cursor, Windsurf, VSCodium, a remote server all differ), then the
+ * well-known ones.
+ */
+export function extensionRoots(): string[] {
+  const own = path.resolve(__dirname, "..", ".."); // <root>/<publisher.agent-pool-x.y.z>/dist
+  const home = os.homedir();
+  const known = [".vscode", ".vscode-insiders", ".cursor", ".windsurf", ".vscode-oss", ".vscode-server", ".cursor-server"]
+    .map((d) => path.join(home, d, "extensions"));
+  return [...new Set([own, ...known])].filter((d) => fs.existsSync(d));
+}
+
+/** Installed extension folders starting with `prefix`, newest version first, across roots. */
 export function extensionDirs(prefix: string): string[] {
-  const root = path.join(os.homedir(), ".vscode", "extensions");
-  let names: string[];
-  try {
-    names = fs.readdirSync(root).filter((n) => n.startsWith(prefix));
-  } catch {
-    return [];
+  const found: string[] = [];
+  for (const root of extensionRoots()) {
+    try {
+      found.push(...fs.readdirSync(root).filter((n) => n.startsWith(prefix)).map((n) => path.join(root, n)));
+    } catch {
+      /* unreadable root */
+    }
   }
-  const version = (n: string) => (n.slice(prefix.length).match(/\d+/g) ?? []).map(Number);
-  return names
-    .sort((a, b) => {
-      const va = version(a);
-      const vb = version(b);
-      for (let i = 0; i < Math.max(va.length, vb.length); i++) {
-        const d = (vb[i] ?? 0) - (va[i] ?? 0);
-        if (d !== 0) return d;
-      }
-      return 0;
-    })
-    .map((n) => path.join(root, n));
+  const version = (dir: string) => (path.basename(dir).slice(prefix.length).match(/\d+/g) ?? []).map(Number);
+  return found.sort((a, b) => {
+    const va = version(a);
+    const vb = version(b);
+    for (let i = 0; i < Math.max(va.length, vb.length); i++) {
+      const d = (vb[i] ?? 0) - (va[i] ?? 0);
+      if (d !== 0) return d;
+    }
+    return 0;
+  });
 }
