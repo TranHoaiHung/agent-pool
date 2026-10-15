@@ -1,0 +1,7 @@
+node_modules/
+dist/
+out/
+*.vsix
+
+# Local planning notes, not published
+plans/

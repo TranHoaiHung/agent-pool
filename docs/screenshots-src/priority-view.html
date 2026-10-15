@@ -1,0 +1,49 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="size" content="980,560"><link rel="stylesheet" href="style.css">
+<style>
+body{width:980px;height:560px;padding:20px}.frame{width:940px;height:520px;display:flex;flex-direction:column}
+.main{flex:1;display:flex;min-height:0}
+.activity{width:48px;background:var(--side);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding-top:10px;gap:18px;color:#858585}
+.activity .on{color:#fff;border-left:2px solid #fff;width:48px;display:flex;justify-content:center;padding:4px 0}
+.activity svg.i{width:24px;height:24px}
+.side{width:420px;background:var(--side);border-right:1px solid var(--border)}
+.side h3{font-size:11px;font-weight:600;letter-spacing:.5px;padding:10px 16px;color:#bbb;display:flex;justify-content:space-between}
+.side h3 span{display:flex;gap:10px;color:#ccc}
+.sec{font-size:11px;font-weight:700;padding:4px 10px;color:#ccc;text-transform:uppercase;border-top:1px solid var(--border)}
+.row{height:26px;display:flex;align-items:center;gap:6px;padding-left:12px;font-size:13px}
+.row.group{font-weight:600}.row .desc{color:var(--muted);font-size:12px;margin-left:6px}
+.row.acct{padding-left:28px}.row.sel{background:var(--select);outline:1px solid #0078d4}
+.row .tools{margin-left:auto;padding-right:10px;display:flex;gap:8px;color:#ccc}
+.row.ghost{opacity:.85;background:#094771;border:1px dashed #3794ff;margin:0 8px 0 20px;border-radius:4px}
+.drop{height:2px;background:#3794ff;margin:0 10px 0 28px}
+.editor{flex:1;position:relative}
+</style></head><body>
+<div class="frame">
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">my-app — Visual Studio Code</span></div>
+  <div class="main">
+    <div class="activity"><span>☰</span><span class="on"><i data-i="pool"></i></span><span><i data-i="terminal"></i></span><span><i data-i="gear"></i></span></div>
+    <div class="side">
+      <h3>AGENTPOOL: ACCOUNTS <span><i data-i="add"></i><i data-i="refresh"></i>⋯</span></h3>
+      <div class="row group">⌄ Claude Code <span class="desc">auto switch on · VS Code only</span></div>
+      <div class="row acct"><i data-i="check"></i> 1. work <span class="desc">5h 42% · 7d 18%</span><span class="tools"><i data-i="up"></i><i data-i="down"></i></span></div>
+      <div class="drop"></div>
+      <div class="row ghost"><i data-i="circle"></i> 3. team <span class="desc">5h 0% · 7d 9%</span><span class="tools">drop here</span></div>
+      <div class="row acct"><i data-i="circle"></i> 2. personal <span class="desc">5h 97% · 7d 60%</span></div>
+      <div class="row acct"><i data-i="slash"></i> 4. old-pro <span class="desc">excluded from auto switch</span></div>
+      <div class="row group" style="margin-top:6px">⌄ Codex <span class="desc">auto switch on</span></div>
+      <div class="row acct sel"><i data-i="check"></i> 1. pro-main <span class="desc">5h 23% · 7d 31%</span><span class="tools"><i data-i="up"></i><i data-i="down"></i></span></div>
+      <div class="row acct"><i data-i="circle"></i> 2. plus-backup <span class="desc">5h 0% · 7d 4%</span></div>
+      <div class="row acct"><i data-i="warn"></i> 3. team-seat <span class="desc">needs sign-in</span></div>
+    </div>
+    <div class="editor">
+      <div class="caption" style="left:40px;top:60px;width:380px;line-height:20px">
+        <b>Drag to set priority.</b> Auto switch walks the list top-down:<br>work → team → personal. Excluded accounts are skipped.
+      </div>
+      <div class="caption" style="left:40px;top:200px;width:380px;background:rgba(115,201,145,.95);color:#10301c;line-height:20px">
+        <b>✓ in use</b> · ↑↓ reorder · right-click: switch, rename, exclude, remove
+      </div>
+    </div>
+  </div>
+  <div style="height:24px"></div>
+  <div class="statusbar"><span class="item"><i data-i="sparkle"></i> work 42%</span><span class="item"><i data-i="code"></i> pro-main 23%</span></div>
+</div>
+<script src="icons.js"></script></body></html>

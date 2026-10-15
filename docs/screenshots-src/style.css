@@ -1,0 +1,33 @@
+/* Shared VS Code dark-theme look for README mockups. Data shown is fictional. */
+:root {
+  --bg: #1e1e1e; --side: #181818; --panel: #252526; --border: #2b2b2b; --text: #cccccc;
+  --muted: #8b8b8b; --accent: #0078d4; --status: #181818; --hover: #2a2d2e; --select: #04395e;
+  --green: #73c991; --yellow: #cca700; --red: #f14c4c; --blue: #3794ff; --purple: #b180d7;
+  --mono: "SF Mono", Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: transparent; font-family: var(--sans); color: var(--text); font-size: 13px; }
+.frame { background: var(--bg); border: 1px solid #333; border-radius: 10px; overflow: hidden; position: relative; box-shadow: 0 20px 60px rgba(0,0,0,.45); }
+.titlebar { height: 34px; background: #1f1f1f; border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 12px; gap: 8px; }
+.dot { width: 12px; height: 12px; border-radius: 50%; } .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+.titlebar .title { flex: 1; text-align: center; color: var(--muted); font-size: 12px; }
+.statusbar { position: absolute; left: 0; right: 0; bottom: 0; height: 24px; background: var(--status); border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: flex-end; gap: 2px; padding: 0 8px; font-size: 12px; }
+.statusbar .item { padding: 0 8px; height: 24px; display: flex; align-items: center; gap: 5px; color: var(--text); }
+.statusbar .item.hot { background: rgba(255,255,255,.12); }
+.statusbar .item.warn { background: #b89500; color: #1e1e1e; }
+.code { font-family: var(--mono); font-size: 12.5px; line-height: 20px; padding: 14px 18px; color: #9cdcfe; white-space: pre; opacity: .55; }
+.k{color:#c586c0}.f{color:#dcdcaa}.s{color:#ce9178}.c{color:#6a9955}.t{color:#4ec9b0}
+.tooltip { position: absolute; background: var(--panel); border: 1px solid #454545; border-radius: 6px; box-shadow: 0 8px 28px rgba(0,0,0,.55); padding: 10px 12px; font-size: 12.5px; line-height: 19px; }
+.tooltip hr { border: 0; border-top: 1px solid #3c3c3c; margin: 8px -12px; }
+.bar { font-family: var(--mono); letter-spacing: -1px; }
+.lbl { font-family: var(--mono); color: var(--muted); display: inline-block; width: 28px; }
+.link { color: var(--blue); }
+.muted { color: var(--muted); }
+.ok { color: var(--green); } .warnc { color: var(--yellow); } .bad { color: var(--red); }
+.acct { margin-bottom: 7px; } .acct b { color: #e6e6e6; }
+svg.i { width: 14px; height: 14px; vertical-align: -2px; }
+.badge { display: inline-block; font-size: 11px; padding: 0 6px; border-radius: 9px; background: #3a3d41; color: #ddd; margin-left: 4px; }
+.caption { position: absolute; font-size: 13px; color: #fff; background: rgba(0,120,212,.92); padding: 6px 10px; border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,.4); }
+.meter { display: inline-block; width: 120px; height: 8px; background: #3a3a3a; border-radius: 4px; overflow: hidden; vertical-align: 0; margin-right: 8px; }
+.meter > span { display: block; height: 100%; border-radius: 4px; }

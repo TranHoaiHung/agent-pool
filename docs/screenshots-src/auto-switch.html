@@ -1,0 +1,46 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="size" content="1120,430"><link rel="stylesheet" href="style.css">
+<style>
+body{width:1120px;height:430px;padding:20px}
+.board{width:1080px;height:390px;background:linear-gradient(135deg,#0d1326,#141a33);border:1px solid #2a3150;border-radius:14px;padding:26px 30px;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+h2{font-size:20px;color:#fff;margin-bottom:4px}.sub{color:#9aa3c7;margin-bottom:22px}
+.lane{display:flex;align-items:stretch;gap:14px}
+.step{flex:1;background:#1b2140;border:1px solid #2f3866;border-radius:10px;padding:14px;position:relative}
+.step h4{font-size:12px;color:#9aa3c7;text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px}
+.acc{display:flex;align-items:center;gap:8px;margin:7px 0;font-size:13px}
+.acc .n{width:66px;color:#e8ebff}.acc .p{width:34px;text-align:right;font-variant-numeric:tabular-nums;color:#c7cdf0}
+.arrow{align-self:center;color:#5b8cff;font-size:26px}
+.toast{position:absolute;right:30px;bottom:24px;width:470px;background:#252526;border:1px solid #454545;border-radius:6px;padding:10px 12px;box-shadow:0 10px 30px rgba(0,0,0,.5);font-size:12.5px;line-height:19px}
+.toast .btns{margin-top:8px;display:flex;gap:8px;justify-content:flex-end}
+.btn{background:#0078d4;color:#fff;padding:3px 10px;border-radius:3px;font-size:12px}.btn.sec{background:#3a3d41}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:9px;background:#2b3a6b;color:#bcd0ff;margin-left:6px}
+.meter{width:96px}.step{min-width:0}
+</style></head><body>
+<div class="board">
+  <h2>Auto switch follows your priority order</h2>
+  <div class="sub">Priority: <b style="color:#fff">work → team → personal</b> · threshold 95% · checked on every usage read</div>
+  <div class="lane">
+    <div class="step"><h4>1 · Working</h4>
+      <div class="acc"><i data-i="check"></i><span class="n">work</span><m data-p="78"></m><span class="p">78%</span></div>
+      <div class="acc"><i data-i="circle"></i><span class="n">team</span><m data-p="9"></m><span class="p">9%</span></div>
+      <div class="acc"><i data-i="circle"></i><span class="n">personal</span><m data-p="97"></m><span class="p">97%</span></div>
+    </div>
+    <div class="arrow">➜</div>
+    <div class="step"><h4>2 · work hits 95% → next in line</h4>
+      <div class="acc"><i data-i="circle"></i><span class="n">work</span><m data-p="96"></m><span class="p">96%</span></div>
+      <div class="acc"><i data-i="check"></i><span class="n">team</span><m data-p="9"></m><span class="p">9%</span><span class="tag">now</span></div>
+      <div class="acc"><i data-i="circle"></i><span class="n">personal</span><m data-p="97"></m><span class="p">97%</span></div>
+    </div>
+    <div class="arrow">➜</div>
+    <div class="step"><h4>3 · work resets → back to #1</h4>
+      <div class="acc"><i data-i="check"></i><span class="n">work</span><m data-p="0"></m><span class="p">0%</span><span class="tag">back</span></div>
+      <div class="acc"><i data-i="circle"></i><span class="n">team</span><m data-p="41"></m><span class="p">41%</span></div>
+      <div class="acc"><i data-i="circle"></i><span class="n">personal</span><m data-p="12"></m><span class="p">12%</span></div>
+    </div>
+  </div>
+  <div class="toast"><i data-i="bell"></i> Claude Code: switched work → team (work reached 96%). Running sessions follow within ~35 s.
+    <div class="btns"><span class="btn sec">Undo</span></div></div>
+  <div style="position:absolute;left:30px;bottom:30px;width:500px;color:#9aa3c7;font-size:12.5px;line-height:19px">
+    Skips accounts that are excluded, need sign-in, or have no fresh reading.<br>Manual switches are left alone for 30 minutes. One VS Code window decides for all.
+  </div>
+</div>
+<script src="icons.js"></script></body></html>

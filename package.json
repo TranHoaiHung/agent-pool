@@ -1,0 +1,348 @@
+{
+  "name": "agent-pool",
+  "displayName": "AgentPool — AI Account Switcher",
+  "description": "Manage several Claude Code and Codex accounts: live quota on hover, one-click switching, priority order and automatic switching before an account runs out.",
+  "version": "0.1.0",
+  "publisher": "tranhoaihung",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TranHoaiHung/agent-pool.git"
+  },
+  "bugs": {
+    "url": "https://github.com/TranHoaiHung/agent-pool/issues"
+  },
+  "homepage": "https://github.com/TranHoaiHung/agent-pool#readme",
+  "icon": "media/icon.png",
+  "preview": true,
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "claude",
+    "claude code",
+    "codex",
+    "account",
+    "quota",
+    "switcher"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "agentPool",
+          "title": "AgentPool",
+          "icon": "media/activity.svg"
+        }
+      ]
+    },
+    "views": {
+      "agentPool": [
+        {
+          "id": "agentPool.accounts",
+          "name": "Accounts"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "agentPool.accounts",
+        "contents": "No accounts saved yet.\n[Save current Claude Code login](command:agentPool.saveCurrent?%22claude%22)\n[Save current Codex login](command:agentPool.saveCurrent?%22codex%22)\n[Add another account](command:agentPool.addAccount)"
+      }
+    ],
+    "commands": [
+      {
+        "command": "agentPool.quickView",
+        "title": "Accounts & quota",
+        "category": "AgentPool",
+        "icon": {
+          "light": "media/title-light.svg",
+          "dark": "media/title-dark.svg"
+        }
+      },
+      {
+        "command": "agentPool.saveCurrent",
+        "title": "Save current login",
+        "category": "AgentPool",
+        "icon": "$(save)"
+      },
+      {
+        "command": "agentPool.addAccount",
+        "title": "Add account (isolated login)",
+        "category": "AgentPool",
+        "icon": "$(add)"
+      },
+      {
+        "command": "agentPool.switch",
+        "title": "Switch account",
+        "category": "AgentPool",
+        "icon": "$(arrow-swap)"
+      },
+      {
+        "command": "agentPool.switchTo",
+        "title": "Switch to this account",
+        "category": "AgentPool",
+        "icon": "$(arrow-swap)"
+      },
+      {
+        "command": "agentPool.refresh",
+        "title": "Refresh usage",
+        "category": "AgentPool",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "agentPool.rename",
+        "title": "Rename",
+        "category": "AgentPool"
+      },
+      {
+        "command": "agentPool.remove",
+        "title": "Remove",
+        "category": "AgentPool"
+      },
+      {
+        "command": "agentPool.moveUp",
+        "title": "Move up (higher priority)",
+        "category": "AgentPool",
+        "icon": "$(arrow-up)"
+      },
+      {
+        "command": "agentPool.moveDown",
+        "title": "Move down (lower priority)",
+        "category": "AgentPool",
+        "icon": "$(arrow-down)"
+      },
+      {
+        "command": "agentPool.toggleRotation",
+        "title": "Include / exclude from auto switch",
+        "category": "AgentPool"
+      },
+      {
+        "command": "agentPool.toggleAutoSwitch",
+        "title": "Toggle auto switch",
+        "category": "AgentPool"
+      },
+      {
+        "command": "agentPool.toggleTerminalScope",
+        "title": "Toggle: switch Claude Code terminal too (system Keychain)",
+        "category": "AgentPool"
+      },
+      {
+        "command": "agentPool.undo",
+        "title": "Undo last switch",
+        "category": "AgentPool"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "agentPool.addAccount",
+          "when": "view == agentPool.accounts",
+          "group": "navigation@1"
+        },
+        {
+          "command": "agentPool.saveCurrent",
+          "when": "view == agentPool.accounts",
+          "group": "navigation@2"
+        },
+        {
+          "command": "agentPool.refresh",
+          "when": "view == agentPool.accounts",
+          "group": "navigation@3"
+        },
+        {
+          "command": "agentPool.toggleAutoSwitch",
+          "when": "view == agentPool.accounts",
+          "group": "1_settings@1"
+        },
+        {
+          "command": "agentPool.toggleTerminalScope",
+          "when": "view == agentPool.accounts",
+          "group": "1_settings@2"
+        },
+        {
+          "command": "agentPool.undo",
+          "when": "view == agentPool.accounts",
+          "group": "1_settings@3"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "agentPool.switchTo",
+          "when": "view == agentPool.accounts && viewItem =~ /^account-idle/",
+          "group": "inline@1"
+        },
+        {
+          "command": "agentPool.moveUp",
+          "when": "view == agentPool.accounts && viewItem =~ /^account/",
+          "group": "inline@2"
+        },
+        {
+          "command": "agentPool.moveDown",
+          "when": "view == agentPool.accounts && viewItem =~ /^account/",
+          "group": "inline@3"
+        },
+        {
+          "command": "agentPool.switchTo",
+          "when": "view == agentPool.accounts && viewItem =~ /^account-idle/",
+          "group": "1_main@1"
+        },
+        {
+          "command": "agentPool.toggleRotation",
+          "when": "view == agentPool.accounts && viewItem =~ /^account/",
+          "group": "1_main@2"
+        },
+        {
+          "command": "agentPool.rename",
+          "when": "view == agentPool.accounts && viewItem =~ /^account/",
+          "group": "2_manage@1"
+        },
+        {
+          "command": "agentPool.remove",
+          "when": "view == agentPool.accounts && viewItem =~ /^account/",
+          "group": "2_manage@2"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "agentPool.switchTo",
+          "when": "false"
+        },
+        {
+          "command": "agentPool.moveUp",
+          "when": "false"
+        },
+        {
+          "command": "agentPool.moveDown",
+          "when": "false"
+        },
+        {
+          "command": "agentPool.rename",
+          "when": "false"
+        },
+        {
+          "command": "agentPool.remove",
+          "when": "false"
+        },
+        {
+          "command": "agentPool.toggleRotation",
+          "when": "false"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "agentPool.quickView",
+          "group": "navigation@100"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "AgentPool",
+      "properties": {
+        "agentPool.claude.switchTerminalToo": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Switch the Claude Code **terminal** too (system Keychain item `Claude Code-credentials`). Off: only Claude Code inside VS Code switches, through its own `CLAUDE_CONFIG_DIR` slot; the `claude` you run in iTerm/Terminal keeps its account.",
+          "order": 0
+        },
+        "agentPool.autoSwitch.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Switch to the next account in priority order when the account in use reaches the threshold.",
+          "order": 1
+        },
+        "agentPool.autoSwitch.thresholdPercent": {
+          "type": "number",
+          "default": 95,
+          "minimum": 50,
+          "maximum": 99,
+          "description": "Usage share (any limit: 5-hour, weekly, model) at which the account in use is switched away from.",
+          "order": 2
+        },
+        "agentPool.autoSwitch.returnToPreferred": {
+          "type": "boolean",
+          "default": true,
+          "description": "Go back to a higher-priority account once its limits have reset.",
+          "order": 3
+        },
+        "agentPool.claude.pollIntervalSeconds": {
+          "type": "number",
+          "default": 240,
+          "minimum": 180,
+          "description": "How often each Claude account's usage is read. Anthropic's usage endpoint is heavily rate-limited."
+        },
+        "agentPool.codex.pollIntervalSeconds": {
+          "type": "number",
+          "default": 120,
+          "minimum": 60,
+          "description": "How often each Codex account's usage is read."
+        },
+        "agentPool.claude.sharedItems": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "CLAUDE.md",
+            "settings.json",
+            "settings.local.json",
+            "agents",
+            "commands",
+            "skills",
+            "hooks",
+            "plugins",
+            "projects",
+            "todos",
+            "workflows",
+            "statusline.sh",
+            "statusline.js",
+            "keybindings.json"
+          ],
+          "description": "Items of ~/.claude linked into the VS Code slot, so Claude Code in VS Code keeps your global config. Login and .claude.json stay separate."
+        },
+        "agentPool.claude.applyToIntegratedTerminal": {
+          "type": "boolean",
+          "default": false,
+          "description": "Also point `claude` in VS Code's integrated terminal at the VS Code slot (sets terminal.integrated.env)."
+        },
+        "agentPool.claudeCommand": {
+          "type": "string",
+          "default": "claude",
+          "description": "Claude Code CLI used for isolated logins."
+        },
+        "agentPool.codexCommand": {
+          "type": "string",
+          "default": "",
+          "description": "Codex CLI used for isolated logins. Empty: `codex` on PATH, else the binary bundled with the ChatGPT/Codex extension."
+        },
+        "agentPool.autoReloadAfterSwitch": {
+          "type": "boolean",
+          "default": false,
+          "description": "Reload the window automatically when a switch needs it (Codex, or the first switch into the VS Code slot)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "package": "node esbuild.js --production && vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "^3.2.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.6.0",
+    "vitest": "^3.2.0"
+  }
+}

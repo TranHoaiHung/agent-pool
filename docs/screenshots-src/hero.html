@@ -1,0 +1,32 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="size" content="1280,560"><link rel="stylesheet" href="style.css">
+<style>
+body{width:1280px;height:560px}
+.hero{width:1280px;height:560px;background:radial-gradient(circle at 20% 30%,#1a2a6c 0,#0b1020 55%),#0b1020;display:flex;align-items:center;padding:0 70px;gap:56px;position:relative;overflow:hidden}
+.hero img{width:300px;height:300px;border-radius:40px;box-shadow:0 30px 80px rgba(40,90,255,.35)}
+h1{font-size:64px;color:#fff;letter-spacing:-1.5px;line-height:1}
+h1 span{background:linear-gradient(90deg,#22c1ee,#7b61ff);-webkit-background-clip:text;color:transparent}
+.tag{font-size:24px;color:#c9d2ff;margin:16px 0 26px}
+.feat{display:grid;grid-template-columns:1fr 1fr;gap:12px 22px;font-size:16px;color:#dfe5ff}
+.feat div{display:flex;gap:10px;align-items:center}
+.feat b{display:inline-flex;width:30px;height:30px;border-radius:8px;background:#1d2a5e;align-items:center;justify-content:center;font-size:15px}
+.chips{margin-top:26px;display:flex;gap:10px}
+.chip{border:1px solid #3a4785;border-radius:20px;padding:5px 14px;color:#c9d2ff;font-size:14px;display:flex;gap:6px;align-items:center}
+.sb{position:absolute;right:70px;bottom:36px;background:#181818;border:1px solid #333;border-radius:6px;display:flex;font-size:13px;color:#ccc}
+.sb span{padding:4px 10px;display:flex;gap:5px;align-items:center}
+</style></head><body>
+<div class="hero">
+  <img src="icon.png" alt="">
+  <div>
+    <h1>Agent<span>Pool</span></h1>
+    <div class="tag">Many AI coding accounts. One VS Code. Never stop at a limit.</div>
+    <div class="feat">
+      <div><b>👀</b> Quota of every account on hover</div>
+      <div><b>⇄</b> One-click switching</div>
+      <div><b>↕</b> Your priority order: B → A → C</div>
+      <div><b>⚡</b> Auto switch before you run out</div>
+    </div>
+    <div class="chips"><span class="chip"><i data-i="sparkle"></i> Claude Code</span><span class="chip"><i data-i="code"></i> Codex</span><span class="chip">No server · no telemetry</span></div>
+  </div>
+  <div class="sb"><span><i data-i="sparkle"></i> work 42%</span><span><i data-i="code"></i> pro-main 23%</span></div>
+</div>
+<script src="icons.js"></script></body></html>

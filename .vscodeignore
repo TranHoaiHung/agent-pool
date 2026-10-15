@@ -1,0 +1,11 @@
+**
+!dist/extension.js
+!media/icon.png
+!media/activity.svg
+!media/title-light.svg
+!media/title-dark.svg
+!package.json
+!README.md
+!LICENSE
+!NOTICE
+!CHANGELOG.md

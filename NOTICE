@@ -1,0 +1,10 @@
+AgentPool is not affiliated with, endorsed by, or sponsored by Anthropic or OpenAI.
+"Claude", "Claude Code", "Codex" and "ChatGPT" are trademarks of their respective owners.
+
+AgentPool relies on undocumented endpoints (Anthropic OAuth usage/profile/token, OpenAI
+wham/usage and OAuth token) that may change or stop working at any time. Use it only with
+accounts you own, and follow each provider's terms of service.
+
+Design ideas and measured facts come from:
+- claude-account-switcher by Krzysztof Zander (MIT): https://github.com/KrzysztofZander/claude-account-switcher
+- pitboard by Ngo Quoc Dat (Apache-2.0): https://github.com/datlechin/pitboard

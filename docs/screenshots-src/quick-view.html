@@ -1,0 +1,38 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="size" content="980,600"><link rel="stylesheet" href="style.css">
+<style>
+body{width:980px;height:600px;padding:20px}.frame{width:940px;height:560px}
+.tabs{height:36px;background:#181818;border-bottom:1px solid var(--border);display:flex;align-items:center}
+.tab{height:36px;padding:0 16px;display:flex;align-items:center;background:var(--bg);border-right:1px solid var(--border);color:#fff;font-size:13px}
+.tabicons{margin-left:auto;display:flex;gap:6px;padding-right:10px;align-items:center}
+.tabicons span{width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:5px;color:#ccc}
+.tabicons span.hl{background:#37373d;outline:1px solid #3794ff;color:#fff}
+.tabicons svg.i{width:18px;height:18px}
+.qp{position:absolute;left:110px;top:78px;width:570px;background:#252526;border:1px solid #454545;border-radius:8px;box-shadow:0 10px 36px rgba(0,0,0,.6);padding:6px}
+.qp input{width:100%;background:#3c3c3c;border:1px solid #0078d4;color:#ccc;padding:6px 8px;border-radius:4px;font-size:13px;font-family:var(--sans)}
+.sep{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:11px;padding:8px 8px 2px}
+.sep::after{content:"";flex:1;border-top:1px solid #3c3c3c}
+.it{padding:4px 8px;border-radius:4px;line-height:18px}
+.it.on{background:var(--select)}
+.it .d{color:var(--muted);margin-left:8px;font-size:12px}.it .det{color:var(--muted);font-size:11.5px;padding-left:20px}
+</style></head><body>
+<div class="frame">
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">my-app — Visual Studio Code</span></div>
+  <div class="tabs"><div class="tab">checkout.ts</div>
+    <div class="tabicons"><span><i data-i="sparkle"></i></span><span><i data-i="code"></i></span><span class="hl"><i data-i="pool"></i></span><span>⋯</span></div></div>
+  <div class="qp">
+    <input value="" placeholder="AgentPool — accounts &amp; quota (select an account to switch)">
+    <div class="sep">Claude Code</div>
+    <div class="it"><i data-i="check"></i> 1. work<span class="d">5h 42% · 7d 18%</span><div class="det">Max 20x · next reset 2h10m · in use</div></div>
+    <div class="it on"><i data-i="circle"></i> 2. team<span class="d">5h 0% · 7d 9%</span><div class="det">Team · next reset 6d2h · select to switch</div></div>
+    <div class="it"><i data-i="error"></i> 3. personal<span class="d">5h 97% · 7d 60%</span><div class="det">Max 5x · next reset 35m · select to switch</div></div>
+    <div class="sep">Codex</div>
+    <div class="it"><i data-i="check"></i> 1. pro-main<span class="d">5h 23% · 7d 31%</span><div class="det">Pro · in use</div></div>
+    <div class="it"><i data-i="circle"></i> 2. plus-backup<span class="d">5h 0% · 7d 4%</span><div class="det">Plus · select to switch</div></div>
+    <div class="sep"></div>
+    <div class="it"><i data-i="refresh"></i> Refresh usage</div>
+    <div class="it"><i data-i="add"></i> Add account</div>
+  </div>
+  <div class="caption" style="right:30px;top:80px;width:200px;line-height:19px">Pin the AgentPool icon in the editor title bar: all tools, all accounts, one list.</div>
+  <div class="statusbar"><span class="item"><i data-i="sparkle"></i> work 42%</span><span class="item"><i data-i="code"></i> pro-main 23%</span></div>
+</div>
+<script src="icons.js"></script></body></html>

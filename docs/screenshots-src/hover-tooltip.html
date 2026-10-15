@@ -1,0 +1,38 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="size" content="980,600"><link rel="stylesheet" href="style.css">
+<style>body{width:980px;height:600px;padding:20px}.frame{width:940px;height:560px}</style></head><body>
+<div class="frame">
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">my-app — Visual Studio Code</span></div>
+  <div class="code"><span class="k">export async function</span> <span class="f">checkout</span>(cart: <span class="t">Cart</span>) {
+  <span class="c">// Claude Code is working here…</span>
+  <span class="k">const</span> total = cart.items.<span class="f">reduce</span>((s, i) =&gt; s + i.price * i.qty, <span class="s">0</span>);
+  <span class="k">await</span> payments.<span class="f">charge</span>(cart.customerId, total);
+  <span class="k">return</span> { ok: <span class="k">true</span>, total };
+}</div>
+
+  <div class="tooltip" style="right:96px;bottom:32px;width:470px">
+    <div><b style="color:#fff">Claude Code</b> <span class="muted">(VS Code only)</span></div>
+    <div class="muted"><i data-i="list"></i> work → personal → team · auto ✓ 95%</div>
+    <hr>
+    <div class="acct"><i data-i="check"></i> <b>work</b> · Max 20x · w***@company.dev<br>
+      <span class="lbl">5h</span><m data-p="42"></m>42% · reset 2h10m<br>
+      <span class="lbl">7d</span><m data-p="18"></m>18% · reset 3d4h</div>
+    <div class="acct"><i data-i="circle"></i> <b>personal</b> · Max 5x · p***@mail.com <span class="link"><i data-i="swap"></i> Switch</span><br>
+      <span class="lbl">5h</span><m data-p="97"></m>97% · reset 35m<br>
+      <span class="lbl">7d</span><m data-p="60"></m>60% · reset 5d1h</div>
+    <div class="acct"><i data-i="circle"></i> <b>team</b> · Team · t***@startup.io <span class="link"><i data-i="swap"></i> Switch</span><br>
+      <span class="lbl">5h</span><m data-p="0"></m>0%<br>
+      <span class="lbl">7d</span><m data-p="9"></m>9% · reset 6d2h</div>
+    <hr>
+    <div><span class="link"><i data-i="refresh"></i> Refresh</span> · <span class="link"><i data-i="add"></i> Add account</span> · <span class="muted">updated 40s ago</span></div>
+    <div><span class="link"><i data-i="circle"></i> Switch terminal too</span></div>
+  </div>
+
+  <div class="caption" style="left:40px;bottom:120px;width:250px">Hover the status bar: every account's 5-hour and weekly quota, one click to switch.</div>
+  <div class="statusbar">
+    <span class="item muted">Ln 4, Col 12</span><span class="item muted">TypeScript</span>
+    <span class="item hot"><i data-i="sparkle"></i> work 42%</span>
+    <span class="item"><i data-i="code"></i> pro-main 23%</span>
+    <span class="item"><i data-i="bell"></i></span>
+  </div>
+</div>
+<script src="icons.js"></script></body></html>

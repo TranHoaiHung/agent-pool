@@ -1,0 +1,46 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="size" content="1120,410"><link rel="stylesheet" href="style.css">
+<style>
+body{width:1120px;height:410px;padding:20px}
+.board{width:1080px;height:370px;background:linear-gradient(135deg,#0d1326,#141a33);border:1px solid #2a3150;border-radius:14px;padding:26px 30px;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+h2{font-size:20px;color:#fff;margin-bottom:4px}.sub{color:#9aa3c7;margin-bottom:20px}
+.cols{display:flex;gap:20px}
+.col{flex:1;background:#1b2140;border:1px solid #2f3866;border-radius:10px;padding:16px}
+.col.def{border-color:#3794ff;box-shadow:0 0 0 1px #3794ff inset}
+.col h3{font-size:15px;color:#fff;display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.chk{width:16px;height:16px;border:1.5px solid #9aa3c7;border-radius:3px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;color:#fff}
+.chk.on{background:#0078d4;border-color:#0078d4}
+.col .note{color:#9aa3c7;font-size:12px;margin-bottom:14px}
+.flow{display:flex;align-items:center;gap:10px}
+.box{background:#121731;border:1px solid #2f3866;border-radius:8px;padding:10px;font-size:12.5px;line-height:18px;flex:1}
+.box b{color:#fff}.box code{font-family:var(--mono);font-size:11.5px;color:#9cdcfe}
+.box.hit{border-color:#73c991}.box.keep{opacity:.7}
+.ar{color:#5b8cff;font-size:20px}
+.res{margin-top:12px;font-size:12.5px;line-height:20px}
+.pill{display:inline-block;padding:0 8px;border-radius:9px;font-size:11.5px;margin-right:4px}
+.pill.g{background:#1f3b2b;color:#8fe3ab}.pill.n{background:#2b2f45;color:#aab2d8}
+</style></head><body>
+<div class="board">
+  <h2>Claude Code: choose what a switch moves</h2>
+  <div class="sub">Setting <code style="font-family:var(--mono);color:#9cdcfe">agentPool.claude.switchTerminalToo</code> · Codex always switches <code style="font-family:var(--mono);color:#9cdcfe">~/.codex/auth.json</code></div>
+  <div class="cols">
+    <div class="col def">
+      <h3><span class="chk"></span> VS Code only <span class="badge">default</span></h3>
+      <div class="note">The terminal keeps its account — handy when the CLI runs a long job.</div>
+      <div class="flow">
+        <div class="box hit"><b>Claude Code in VS Code</b><br><code>CLAUDE_CONFIG_DIR=~/.agent-pool/claude-vscode</code><br>Keychain <code>Claude Code-credentials-&lt;hash&gt;</code></div>
+        <div class="ar">⇄</div>
+        <div class="box keep"><b><code>claude</code> in iTerm / Terminal</b><br>Keychain <code>Claude Code-credentials</code><br>untouched</div>
+      </div>
+      <div class="res"><span class="pill g">switches</span>VS Code · <span class="pill n">stays</span>terminal<br>Your agents, skills, CLAUDE.md, hooks are linked in — same setup.</div>
+    </div>
+    <div class="col">
+      <h3><span class="chk on">✓</span> Switch terminal too</h3>
+      <div class="note">One account everywhere on this Mac.</div>
+      <div class="flow">
+        <div class="box hit"><b>System login</b><br>Keychain <code>Claude Code-credentials</code><br>used by every <code>claude</code> and VS Code</div>
+      </div>
+      <div class="res"><span class="pill g">switches</span>VS Code · <span class="pill g">switches</span>every terminal<br>Running sessions follow within ~35 s — no restart.</div>
+    </div>
+  </div>
+</div>
+<script src="icons.js"></script></body></html>
