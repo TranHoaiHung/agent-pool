@@ -46,7 +46,9 @@ Manage several **Claude Code** and **Codex** accounts in VS Code:
 
 1. **Install** AgentPool. It saves the Claude Code / Codex accounts you are already signed in to, and the status bar shows their quota right away.
 2. **Add account** (＋ in the AgentPool view, or the welcome message) for each other account. It signs in through an isolated login in a terminal + your browser; the account in use is untouched. No CLI to install: AgentPool uses the `claude` / `codex` that ships with the official extensions.
-3. **Drag** accounts into the order you want. Done — hover the status bar to watch quotas; auto switch handles the rest.
+3. **Drag** accounts into the order you want — the order is saved immediately. Done — hover the status bar to watch quotas; auto switch handles the rest.
+
+Signed in to another account later (`/login`, `codex login`)? AgentPool saves it on its own.
 
 ## Long sessions across organizations
 
@@ -78,6 +80,7 @@ files (the session transcript, `git status`); nothing is sent anywhere.
 |---|---|---|
 | `agentPool.autoSwitch.thresholdPercent` | 95 | Switch away at this share of any limit (50–100). Also: `AgentPool: Set auto-switch threshold`, or click the % in the tooltip. |
 | `agentPool.autoSwitch.enabled` | on | Auto switch on/off. |
+| `agentPool.autoSaveLogins` | on | Save the account you sign in to automatically. |
 | `agentPool.claude.pollIntervalSeconds` / `agentPool.codex.pollIntervalSeconds` | 300 | How often the account in use reads its quota (halved near the threshold). |
 | `agentPool.idlePollMinutes` | 30 | How often accounts not in use read their quota. |
 | `agentPool.claude.handoff.enabled` / `.marginPercent` | on / 5 | Long-session help when switching to another organization, starting this many points before the threshold. |

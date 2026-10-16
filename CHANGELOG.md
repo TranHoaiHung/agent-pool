@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.9 — 2026-10-16
+
+- **Accounts save themselves:** when you sign in to another Claude Code or Codex account
+  (`/login`, `codex login`, …), AgentPool saves it automatically — no "Save current login" needed.
+  An account you remove is not saved again until you save it yourself. Setting: `agentPool.autoSaveLogins`.
+- Reordering (drag & drop, ↑/↓) confirms "priority order saved" — it is stored the moment it changes.
+- The AgentPool version is shown in the view title and the tooltip footer (and logged), to help support.
+
 ## 0.1.8 — 2026-10-16
 
 - **Compact mode** (new default, `agentPool.claude.handoff.mode`): near the limit (default 90%)

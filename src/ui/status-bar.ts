@@ -14,6 +14,8 @@ const COMMANDS = ["workbench.action.reloadWindow", "agentPool.setThreshold", "ag
 export class StatusBar {
   private readonly items = new Map<ProviderId, vscode.StatusBarItem>();
   private places = new Map<ProviderId, Place[]>();
+  /** Shown in the tooltip footer, so people can tell which version they run. */
+  version = "";
 
   constructor(private readonly service: AccountService) {
     (["claude", "codex"] as ProviderId[]).forEach((p, i) => {
@@ -111,7 +113,7 @@ export class StatusBar {
     }
     const newest = Math.max(0, ...accounts.map((a) => data.usage[a.id]?.snapshot?.fetchedAt ?? 0));
     md.appendMarkdown(
-      `---\n\n[$(refresh) Refresh](command:agentPool.refresh) · [$(add) Add account](command:agentPool.addAccount) · updated ${ago(newest || undefined)}`
+      `---\n\n[$(refresh) Refresh](command:agentPool.refresh) · [$(add) Add account](command:agentPool.addAccount) · updated ${ago(newest || undefined)}${this.version ? ` · AgentPool v${this.version}` : ""}`
     );
     if (provider === "claude") {
       const on = cfg.get<boolean>("claude.switchTerminalToo") ?? false;

@@ -8,6 +8,11 @@ import { Node } from "./accounts-tree";
 import { compactUsage } from "./format";
 import { showQuickView } from "./quick-view";
 
+/** The order is stored the moment it changes; this only says so. */
+export function prioritySaved(): void {
+  vscode.window.setStatusBarMessage("$(check) AgentPool: priority order saved", 2500);
+}
+
 /** Accepts a tree node, an account id (tooltip links) or nothing. */
 function accountFrom(service: AccountService, arg: unknown): AccountMeta | undefined {
   if (typeof arg === "string") {
@@ -178,12 +183,18 @@ export function registerCommands(
 
   reg("agentPool.moveUp", async (arg) => {
     const account = accountFrom(service, arg);
-    if (account) await service.move(account.id, -1);
+    if (account) {
+      await service.move(account.id, -1);
+      prioritySaved();
+    }
   });
 
   reg("agentPool.moveDown", async (arg) => {
     const account = accountFrom(service, arg);
-    if (account) await service.move(account.id, 1);
+    if (account) {
+      await service.move(account.id, 1);
+      prioritySaved();
+    }
   });
 
   reg("agentPool.toggleRotation", async (arg) => {

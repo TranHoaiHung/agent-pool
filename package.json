@@ -2,7 +2,7 @@
   "name": "agent-pool",
   "displayName": "AgentPool — AI Account Switcher",
   "description": "Switch Claude Code & Codex accounts in one click, see every account's quota on hover, and auto-switch before you hit a limit.",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "publisher": "tranhoaihung",
   "license": "MIT",
   "repository": {
@@ -397,6 +397,11 @@
             "Claude writes a handoff reply near the limit; after the switch a new conversation starts from it."
           ],
           "description": "How a long session survives a switch to another organization."
+        },
+        "agentPool.autoSaveLogins": {
+          "type": "boolean",
+          "default": true,
+          "description": "Save automatically the Claude Code / Codex account you sign in to (e.g. with /login), so you never need \"Save current login\". Accounts you remove are not saved again until you save them yourself."
         }
       }
     }

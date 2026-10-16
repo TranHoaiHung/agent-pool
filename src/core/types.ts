@@ -72,6 +72,8 @@ export interface PoolData {
   lastSwitch: Partial<Record<ProviderId, SwitchRecord>>;
   /** Exhaustion notices already shown, keyed by provider. */
   noticeKeys: Partial<Record<ProviderId, string>>;
+  /** Identity keys the person removed: auto-save skips them until they are saved by hand. */
+  removedIdentities?: string[];
 }
 
 export function emptyPool(): PoolData {

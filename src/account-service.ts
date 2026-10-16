@@ -12,6 +12,10 @@ export class AccountService {
   private switching = new Set<ProviderId>();
   private listeners: Array<() => void> = [];
   private switchListeners: Array<(provider: ProviderId) => void> = [];
+  private autoSaveListeners: Array<(meta: AccountMeta) => void> = [];
+  private autoSaveTried = new Map<ProviderId, number>();
+  /** Reads settings without a vscode import (keeps this class testable). */
+  settings?: { autoSaveLogins(): boolean };
   /** When this window's extension host started (a reload restarts it). */
   private readonly startedAt = Date.now();
 
@@ -66,10 +70,13 @@ export class AccountService {
     let changed = false;
     for (const id of PROVIDERS) {
       const provider = this.providers.get(id);
-      const value = await provider?.activeAccountId().catch((e: Error) => {
+      let value = await provider?.activeAccountId().catch((e: Error) => {
         this.log(`[${id}] could not read the login in use: ${e.message}`);
         return this.active.get(id);
       });
+      if (value === undefined && provider) {
+        value = (await this.autoSave(id))?.id;
+      }
       if (value !== this.active.get(id)) {
         this.active.set(id, value);
         changed = true;
@@ -78,6 +85,37 @@ export class AccountService {
     if (changed) {
       this.listeners.forEach((l) => l());
     }
+  }
+
+  /**
+   * Saves the login a tool uses when nobody saved it yet (signed in with /login, `codex login`,
+   * …), so people never need "Save current login". Skips logins the person removed, and is
+   * attempted at most once a minute per tool (it may ask Anthropic whose login it is).
+   */
+  private async autoSave(provider: ProviderId): Promise<AccountMeta | undefined> {
+    const enabled = this.settings?.autoSaveLogins() ?? true;
+    const last = this.autoSaveTried.get(provider) ?? 0;
+    if (!enabled || Date.now() - last < 60_000) {
+      return undefined;
+    }
+    this.autoSaveTried.set(provider, Date.now());
+    try {
+      const current = await this.providers.get(provider)!.captureCurrent();
+      if (!current || (this.pool.get().removedIdentities ?? []).includes(current.identity.identityKey)) {
+        return undefined;
+      }
+      const meta = await this.enroll(provider, current.secret, current.identity);
+      this.log(`[${provider}] auto-saved the login in use: ${meta.label}`);
+      this.autoSaveListeners.forEach((l) => l(meta));
+      return meta;
+    } catch (e) {
+      this.log(`[${provider}] auto-save skipped: ${(e as Error).message}`);
+      return undefined;
+    }
+  }
+
+  onAutoSaved(listener: (meta: AccountMeta) => void): void {
+    this.autoSaveListeners.push(listener);
   }
 
   /** Saves a login, or updates the saved one with the same identity. */
@@ -119,6 +157,9 @@ export class AccountService {
     if (!current) {
       return undefined;
     }
+    await this.pool.mutate((data) => {
+      data.removedIdentities = (data.removedIdentities ?? []).filter((k) => k !== current.identity.identityKey);
+    });
     const meta = await this.enroll(provider, current.secret, current.identity);
     await this.refreshActive();
     return meta;
@@ -165,6 +206,10 @@ export class AccountService {
 
   async remove(id: string): Promise<void> {
     await this.pool.mutate((data) => {
+      const removed = data.accounts.find((a) => a.id === id);
+      if (removed) {
+        data.removedIdentities = [...new Set([...(data.removedIdentities ?? []), removed.identityKey])];
+      }
       data.accounts = data.accounts.filter((a) => a.id !== id);
       for (const p of PROVIDERS) {
         data.order[p] = data.order[p].filter((x) => x !== id);

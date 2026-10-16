@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { AccountService } from "../account-service";
 import { ordered, placeBefore } from "../core/priority";
 import { AccountMeta, PROVIDER_LABEL, PROVIDERS, ProviderId } from "../core/types";
+import { prioritySaved } from "./commands";
 import { compactUsage } from "./format";
 
 const MIME = "application/vnd.code.tree.agentpool.accounts";
@@ -89,5 +90,6 @@ export class AccountsTree implements vscode.TreeDataProvider<Node>, vscode.TreeD
         }
       }
     });
+    prioritySaved();
   }
 }

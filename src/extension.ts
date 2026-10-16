@@ -39,6 +39,16 @@ export function activate(context: vscode.ExtensionContext): void {
     dragAndDropController: tree,
     canSelectMany: false,
   });
+  const version = String(context.extension.packageJSON.version ?? "");
+  view.description = `v${version}`;
+  log(`AgentPool v${version} on ${process.platform} (VS Code ${vscode.version})`);
+  statusBar.version = version;
+  service.settings = { autoSaveLogins: () => vscode.workspace.getConfiguration("agentPool").get<boolean>("autoSaveLogins", true) };
+  service.onAutoSaved((meta) => {
+    void vscode.window.showInformationMessage(
+      `AgentPool saved the ${meta.provider === "claude" ? "Claude Code" : "Codex"} account you signed in to: ${meta.email ?? meta.label}.`
+    );
+  });
   const rerender = () => {
     statusBar.render();
     tree.refresh();
