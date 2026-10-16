@@ -10,6 +10,8 @@ import * as path from "path";
 const REQUEST_MAX_AGE_MS = 2 * 3_600_000;
 const HANDOFF_MAX_AGE_MS = 24 * 3_600_000;
 const ARCHIVE_DAYS = 7;
+/** File times can trail Date.now() by a few ms (coarse kernel clocks): compare with this slack. */
+const MTIME_SLACK_MS = 1_000;
 
 /**
  * "compact": you run /compact near the limit and AgentPool switches right after, so the same
@@ -84,7 +86,7 @@ export function onStop(
     fs.writeFileSync(file, [summary, extra.trim()].filter(Boolean).join("\n\n") + "\n");
     return undefined;
   }
-  if (stopHookActive || (fs.existsSync(file) && fs.statSync(file).mtimeMs >= request.at)) {
+  if (stopHookActive || (fs.existsSync(file) && fs.statSync(file).mtimeMs >= request.at - MTIME_SLACK_MS)) {
     return undefined;
   }
   return [
@@ -140,7 +142,7 @@ export function handoffCapturedSince(at: number): boolean {
     return fs
       .readdirSync(handoffDir())
       .filter((n) => n.endsWith(".md"))
-      .some((n) => fs.statSync(path.join(handoffDir(), n)).mtimeMs >= at);
+      .some((n) => fs.statSync(path.join(handoffDir(), n)).mtimeMs >= at - MTIME_SLACK_MS);
   } catch {
     return false;
   }
