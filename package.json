@@ -289,7 +289,7 @@
           "minimum": 50,
           "maximum": 100,
           "order": 2,
-          "markdownDescription": "Usage share (any limit: 5-hour, weekly, model) at which the account in use is switched away from. Default 95. Higher (98, 99, 100) uses more of each account but leaves less margin: at 100 the switch happens only once the account is already refusing requests."
+          "markdownDescription": "Switch away when the **5-hour** limit of the account in use reaches this share (50–100, default 95). Weekly and per-model limits use `agentPool.autoSwitch.weeklyThresholdPercent`. At 100 the switch happens only once the account is already refusing requests."
         },
         "agentPool.autoSwitch.returnToPreferred": {
           "type": "boolean",
@@ -402,6 +402,14 @@
           "type": "boolean",
           "default": true,
           "description": "Save automatically the Claude Code / Codex account you sign in to (e.g. with /login), so you never need \"Save current login\". Accounts you remove are not saved again until you save them yourself."
+        },
+        "agentPool.autoSwitch.weeklyThresholdPercent": {
+          "type": "number",
+          "default": 95,
+          "minimum": 50,
+          "maximum": 100,
+          "markdownDescription": "Switch away when a **weekly** (or per-model) limit reaches this share. Never lower than the 5-hour threshold. 60% of a week used still leaves plenty of room, so this stays high by default.",
+          "order": 3
         }
       }
     }

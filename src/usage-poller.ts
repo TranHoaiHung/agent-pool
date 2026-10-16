@@ -1,8 +1,8 @@
 import * as vscode from "vscode";
 import { AccountService } from "./account-service";
-import { BEST_ROOM_MARGIN, decide } from "./core/auto-switch-engine";
+import { decide, effectivePercent } from "./core/auto-switch-engine";
 import { ordered } from "./core/priority";
-import { AccountMeta, maxUsed, PROVIDER_LABEL, ProviderId, UsageRecord } from "./core/types";
+import { AccountMeta, PROVIDER_LABEL, ProviderId, UsageRecord } from "./core/types";
 import { HandoffController } from "./handoff/handoff-controller";
 import { HttpError } from "./providers/http";
 
@@ -17,6 +17,17 @@ function orgOf(identityKey: string): string {
 }
 
 /** The auto switch threshold from settings, 50–100 (default 95). */
+/** The threshold for weekly / per-model limits (default 95), never below the short one. */
+export function longThreshold(): number {
+  const value = vscode.workspace.getConfiguration("agentPool").get<number>("autoSwitch.weeklyThresholdPercent") ?? 95;
+  return Math.max(threshold(), Math.min(100, Math.round(value)));
+}
+
+/** An account's usage on the scale of the short threshold: weekly limits weigh against their own. */
+function effective(record: UsageRecord | undefined): number | undefined {
+  return effectivePercent(record?.snapshot, Date.now(), threshold(), longThreshold());
+}
+
 export function threshold(): number {
   const value = vscode.workspace.getConfiguration("agentPool").get<number>("autoSwitch.thresholdPercent") ?? 95;
   return Math.min(100, Math.max(50, Math.round(value)));
@@ -90,7 +101,7 @@ export class UsagePoller {
     const base = account.provider === "claude"
       ? Math.max(180, cfg.get<number>("claude.pollIntervalSeconds") ?? 300)
       : Math.max(120, cfg.get<number>("codex.pollIntervalSeconds") ?? 300);
-    const used = maxUsed(this.service.pool.get().usage[account.id]?.snapshot, Date.now()) ?? 0;
+    const used = effective(this.service.pool.get().usage[account.id]) ?? 0;
     // Watched closer within 10 points of the threshold, never more often than every 2 minutes.
     return (used >= threshold() - 10 ? Math.max(120, base / 2) : base) * 1000;
   }
@@ -152,7 +163,7 @@ export class UsagePoller {
     const activeId = this.service.activeId(provider);
     const held = this.service.heldElsewhere(provider);
     const next = ordered(data, provider).find((a) => {
-      const u = maxUsed(data.usage[a.id]?.snapshot, Date.now());
+      const u = effective(data.usage[a.id]);
       return a.id !== activeId && a.id !== held && a.inRotation && !a.needsReauth && u !== undefined && u < threshold();
     });
     if (!next) {
@@ -184,10 +195,10 @@ export class UsagePoller {
     const intervalMs = active ? this.interval(active) : 300_000;
     const last = data.lastSwitch[provider];
     if (provider === "claude" && active) {
-      const usedNow = maxUsed(data.usage[active.id]?.snapshot, Date.now());
+      const usedNow = effective(data.usage[active.id]);
       // The account auto switch would go to: the first other one in priority order with room.
       const next = accounts.find((a) => {
-        const u = maxUsed(data.usage[a.id]?.snapshot, Date.now());
+        const u = effective(data.usage[a.id]);
         return a.id !== active.id && a.inRotation && !a.needsReauth && (u === undefined || u < threshold());
       });
       if (usedNow !== undefined) {
@@ -202,6 +213,7 @@ export class UsagePoller {
       usage: data.usage,
       activeId: this.service.activeId(provider),
       thresholdPercent: threshold(),
+      longThresholdPercent: longThreshold(),
       // Going back only undoes AgentPool's own move off a higher-priority account that was
       // full. Saving an account, or a manual switch, never triggers it.
       returnToPreferred:
@@ -248,7 +260,7 @@ export class UsagePoller {
     }
     if (decision.action === "exhausted") {
       const when = decision.soonestReset ? new Date(decision.soonestReset).toLocaleTimeString() : "unknown";
-      const text = `${active?.label ?? "The account in use"} is past ${threshold()}% and no other account has clearly more room (at least ${BEST_ROOM_MARGIN} points less used). Staying; soonest reset ${when}.`;
+      const text = `${active?.label ?? "The account in use"} is past its threshold (5h ${threshold()}%, weekly ${longThreshold()}%) and no other account has clearly more room. Staying; soonest reset ${when}.`;
       this.service.autoNote.set(provider, text);
       if (data.noticeKeys[provider] !== decision.noticeKey) {
         await this.service.pool.mutate((d) => {

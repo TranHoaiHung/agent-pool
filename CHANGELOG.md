@@ -2,13 +2,15 @@
 
 ## 0.1.12 — 2026-10-16
 
-- Fix: with a low threshold (e.g. 50%), auto switch stayed on an account at 80% because every
-  other account was also past 50% on some limit (e.g. its weekly 60%). When no account is under
-  the threshold, AgentPool now moves to the one with the most room, if it is at least 10 points
-  less used — so the current account is not run to 100%, and two similar accounts never trade
-  places on every reading.
-- When AgentPool stays put, the tooltip says why (and the notice no longer claims every account is
-  "at the limit").
+- Fix: with a low threshold (e.g. 50%), auto switch stayed on an account at 80% because the other
+  account's **weekly** use (60%) was also compared with 50%. Thresholds now apply per kind of limit:
+  the one you set is for the **5-hour** limit; weekly and per-model limits use
+  `agentPool.autoSwitch.weeklyThresholdPercent` (default 95, never below the 5-hour one). An account
+  at 5h 25% / 7d 60% is a good target at a 50% threshold, and staying on it raises no warning.
+- When no account is under the thresholds, AgentPool moves to the one with clearly more room
+  (at least 10 points less used) instead of running the current one to 100%; similar accounts never
+  trade places.
+- When AgentPool stays put, the tooltip says why; the tooltip shows both thresholds.
 
 ## 0.1.11 — 2026-10-16
 

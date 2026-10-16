@@ -146,7 +146,7 @@ describe("decide with a user threshold", () => {
   });
 });
 
-describe("decide when nothing is under the threshold", () => {
+describe("decide with per-window thresholds (5h vs weekly)", () => {
   const two = [account("B"), account("A")];
   const weekly = (five: number, seven: number): UsageRecord => ({
     snapshot: { fetchedAt: NOW, windows: [
@@ -155,19 +155,32 @@ describe("decide when nothing is under the threshold", () => {
     ] },
   });
 
-  it("moves to the clearly emptier account (threshold 50: B at 80%, A at 5h 25% / 7d 60%)", () => {
+  it("threshold 50: an account at 5h 25% / 7d 60% is a good target (weekly is measured against 95%)", () => {
     const d = decide(input({ accounts: two, thresholdPercent: 50, usage: { B: weekly(80, 20), A: weekly(25, 60) } }));
     expect(d).toMatchObject({ action: "switch", toId: "A", reason: "threshold" });
   });
 
-  it("does not trade places between similar accounts", () => {
+  it("…and once on it, AgentPool stays without warnings", () => {
     const d = decide(input({ accounts: two, activeId: "A", thresholdPercent: 50, usage: { A: weekly(25, 60), B: weekly(80, 20) } }));
-    expect(d.action).toBe("exhausted");
+    expect(d.action).toBe("none");
   });
 
-  it("still prefers an account under the threshold, in priority order", () => {
-    const three = [account("B"), account("A"), account("C")];
-    const d = decide(input({ accounts: three, thresholdPercent: 50, usage: { B: weekly(80, 20), A: weekly(25, 60), C: weekly(10, 10) } }));
-    expect(d).toMatchObject({ action: "switch", toId: "C" });
+  it("a weekly limit near its own threshold still triggers a switch", () => {
+    const d = decide(input({ accounts: two, thresholdPercent: 50, usage: { B: weekly(10, 96), A: weekly(10, 10) } }));
+    expect(d).toMatchObject({ action: "switch", toId: "A" });
+  });
+
+  it("the weekly threshold is configurable and never below the 5h one", () => {
+    const d = decide(input({ accounts: two, thresholdPercent: 50, longThresholdPercent: 70, usage: { B: weekly(10, 75), A: weekly(10, 10) } }));
+    expect(d.action).toBe("switch");
+    const e = decide(input({ accounts: two, thresholdPercent: 90, longThresholdPercent: 60, usage: { B: weekly(10, 80), A: weekly(10, 10) } }));
+    expect(e.action).toBe("none"); // 80% < max(90, 60)
+  });
+
+  it("with nothing under the thresholds, moves to a clearly emptier account, never between similar ones", () => {
+    const d = decide(input({ accounts: two, thresholdPercent: 50, usage: { B: weekly(80, 20), A: weekly(65, 20) } }));
+    expect(d).toMatchObject({ action: "switch", toId: "A" });
+    const e = decide(input({ accounts: two, thresholdPercent: 50, usage: { B: weekly(80, 20), A: weekly(76, 20) } }));
+    expect(e.action).toBe("exhausted");
   });
 });

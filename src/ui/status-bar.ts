@@ -3,7 +3,7 @@ import { AccountService } from "../account-service";
 import { ordered } from "../core/priority";
 import { maxUsed, PROVIDER_LABEL, ProviderId } from "../core/types";
 import { Place } from "../providers/provider";
-import { threshold } from "../usage-poller";
+import { longThreshold, threshold } from "../usage-poller";
 import { ago, bar, shownWindows, until } from "./format";
 
 const ICON: Record<ProviderId, string> = { claude: "$(sparkle)", codex: "$(code)" };
@@ -71,7 +71,7 @@ export class StatusBar {
     md.supportHtml = false;
 
     const auto = cfg.get<boolean>("autoSwitch.enabled", true)
-      ? `auto ✓ [${this.threshold()}%](command:agentPool.setThreshold "Change the auto switch threshold")`
+      ? `auto ✓ [5h ${this.threshold()}% · weekly ${longThreshold()}%](command:agentPool.setThreshold "Change the auto switch threshold")`
       : "auto off";
     const order = accounts.filter((a) => a.inRotation).map((a) => a.label).join(" → ");
     md.appendMarkdown(`**${PROVIDER_LABEL[provider]}**${scope}  \n$(list-ordered) ${order || "—"} · ${auto}\n\n`);
