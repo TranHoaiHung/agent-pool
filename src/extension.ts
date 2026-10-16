@@ -76,6 +76,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   });
   let poller: UsagePoller | undefined;
+  let lastReloadAsk = 0;
   const leader = new LeaderLock((isLeader) => {
     log(isLeader ? "this window reads usage (leader)" : "another window reads usage");
     if (isLeader) {
@@ -86,6 +87,24 @@ export function activate(context: vscode.ExtensionContext): void {
         () => leader.isLeader(),
         handoff
       );
+      poller.onReloadNeeded = (provider) => {
+        // At most every 10 minutes: the account is at its limit and only a reload unblocks it.
+        if (Date.now() - lastReloadAsk < 10 * 60_000) {
+          return;
+        }
+        lastReloadAsk = Date.now();
+        if (vscode.workspace.getConfiguration("agentPool").get<boolean>("autoReloadAfterSwitch")) {
+          void vscode.commands.executeCommand("workbench.action.reloadWindow");
+          return;
+        }
+        void vscode.window
+          .showWarningMessage(
+            `AgentPool: ${provider === "claude" ? "Claude Code" : "Codex"} needs a new account now, but this window must reload once first (it still runs the previous account).`,
+            { modal: true, detail: "Reload now and AgentPool switches automatically right after. Until then auto switch cannot act in this window." },
+            "Reload Window"
+          )
+          .then((c) => c && vscode.commands.executeCommand("workbench.action.reloadWindow"));
+      };
       poller.start();
     } else {
       poller?.stop();

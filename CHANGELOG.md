@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.11 — 2026-10-16
+
+- Fix: auto switch could stay blocked while a window waited for a reload it never got (status bar
+  "⟳"), letting the account reach 100%. When a switch is due in such a window, AgentPool now asks
+  to reload in a dialog (at most every 10 minutes), or reloads by itself with
+  `agentPool.autoReloadAfterSwitch`; the status bar says "reload" next to the ⟳.
+
 ## 0.1.10 — 2026-10-16
 
 - Fix: after a switch, Claude Code in VS Code could keep using the previous account (and its quota)

@@ -28,6 +28,8 @@ export function threshold(): number {
  */
 export class UsagePoller {
   private timer?: NodeJS.Timeout;
+  /** Called when a switch is due but this window must reload first. */
+  onReloadNeeded?: (provider: ProviderId) => void;
   private busy = false;
   private readonly inFlight = new Set<string>();
 
@@ -168,9 +170,12 @@ export class UsagePoller {
 
   private async autoSwitch(provider: ProviderId): Promise<void> {
     const cfg = vscode.workspace.getConfiguration("agentPool");
-    if (!cfg.get<boolean>("autoSwitch.enabled", true) || this.service.pendingReload(provider)) {
+    if (!cfg.get<boolean>("autoSwitch.enabled", true)) {
       return;
     }
+    // A window started before a reload-needing switch still runs an older account: it must not
+    // switch on numbers that are not its own — but it must say so, not wait in silence.
+    const pending = this.service.pendingReload(provider);
     const data = this.service.pool.get();
     // The terminal's account (VS Code only mode) is not a candidate: it cannot be live twice.
     const held = this.service.heldElsewhere(provider);
@@ -216,6 +221,12 @@ export class UsagePoller {
         }
       }
       return; // decided again on the next tick, with the new readings
+    }
+    if (pending) {
+      if (decision.action === "switch") {
+        this.onReloadNeeded?.(provider);
+      }
+      return;
     }
     if (decision.action === "switch" && decision.reason === "threshold" && provider === "claude" && this.handoff?.shouldHoldSwitch(decision.usedPercent)) {
       this.service.log(`[claude] switch waits for the handoff (${decision.usedPercent}%)`);

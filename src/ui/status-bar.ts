@@ -47,7 +47,7 @@ export class StatusBar {
       const used = active ? maxUsed(data.usage[active.id]?.snapshot, Date.now()) : undefined;
       const scope = provider === "claude" ? this.claudeScopeTag() : "";
       const stale = active && Date.now() - (data.usage[active.id]?.snapshot?.fetchedAt ?? 0) > STALE_AFTER_MS;
-      const reload = this.service.pendingReload(provider) ? " $(debug-restart)" : "";
+      const reload = this.service.pendingReload(provider) ? " $(debug-restart) reload" : "";
       item.text = `${ICON[provider]} ${active?.label ?? "not saved"}${used !== undefined ? ` ${used}%${stale ? "?" : ""}` : ""}${reload}`;
       item.backgroundColor = used === undefined || used < 80
         ? undefined
