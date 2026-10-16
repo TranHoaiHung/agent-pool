@@ -148,9 +148,10 @@ export class UsagePoller {
     }
     const data = this.service.pool.get();
     const activeId = this.service.activeId(provider);
+    const held = this.service.heldElsewhere(provider);
     const next = ordered(data, provider).find((a) => {
       const u = maxUsed(data.usage[a.id]?.snapshot, Date.now());
-      return a.id !== activeId && a.inRotation && !a.needsReauth && u !== undefined && u < threshold();
+      return a.id !== activeId && a.id !== held && a.inRotation && !a.needsReauth && u !== undefined && u < threshold();
     });
     if (!next) {
       this.service.log(`[${provider}] ${why}, but no account with room to switch to`);
@@ -171,7 +172,9 @@ export class UsagePoller {
       return;
     }
     const data = this.service.pool.get();
-    const accounts = ordered(data, provider);
+    // The terminal's account (VS Code only mode) is not a candidate: it cannot be live twice.
+    const held = this.service.heldElsewhere(provider);
+    const accounts = ordered(data, provider).filter((a) => a.id !== held || a.id === this.service.activeId(provider));
     const active = accounts.find((a) => a.id === this.service.activeId(provider));
     const intervalMs = active ? this.interval(active) : 300_000;
     const last = data.lastSwitch[provider];

@@ -2,13 +2,14 @@ import { PoolStore } from "./core/pool-store";
 import { move } from "./core/priority";
 import { newAccountId, SecretVault } from "./core/secret-vault";
 import { AccountMeta, AccountSecret, Identity, PROVIDERS, ProviderId } from "./core/types";
-import { Provider, ProviderContext, SwitchOutcome } from "./providers/provider";
+import { Provider, ProviderContext, SwitchOptions, SwitchOutcome } from "./providers/provider";
 
 /** What the UI and the poller use: accounts, their order, and switching. */
 export class AccountService {
   readonly providers = new Map<ProviderId, Provider>();
   /** Account VS Code uses per tool, as last read. */
   private active = new Map<ProviderId, string | undefined>();
+  private held = new Map<ProviderId, string | undefined>();
   private switching = new Set<ProviderId>();
   private listeners: Array<() => void> = [];
   private switchListeners: Array<(provider: ProviderId) => void> = [];
@@ -57,6 +58,11 @@ export class AccountService {
     return (last?.reloadAt ?? 0) > this.startedAt;
   }
 
+  /** The account another place holds (the terminal's, in VS Code only mode): never switched to automatically. */
+  heldElsewhere(provider: ProviderId): string | undefined {
+    return this.held.get(provider);
+  }
+
   activeId(provider: ProviderId): string | undefined {
     return this.active.get(provider);
   }
@@ -77,6 +83,7 @@ export class AccountService {
       if (value === undefined && provider) {
         value = (await this.autoSave(id))?.id;
       }
+      this.held.set(id, await provider?.heldElsewhere?.().catch(() => undefined));
       if (value !== this.active.get(id)) {
         this.active.set(id, value);
         changed = true;
@@ -170,7 +177,12 @@ export class AccountService {
     return this.enroll(provider, result.secret, result.identity);
   }
 
-  async switchTo(id: string, automatic: boolean, reason?: "threshold" | "preferred"): Promise<SwitchOutcome> {
+  async switchTo(
+    id: string,
+    automatic: boolean,
+    reason?: "threshold" | "preferred",
+    options?: SwitchOptions
+  ): Promise<SwitchOutcome> {
     const account = this.account(id);
     if (!account) {
       throw new Error("Unknown account.");
@@ -182,7 +194,7 @@ export class AccountService {
     try {
       const fromId = this.active.get(account.provider);
       const previous = this.pool.get().lastSwitch[account.provider];
-      const outcome = await this.providers.get(account.provider)!.switchTo(account);
+      const outcome = await this.providers.get(account.provider)!.switchTo(account, options);
       await this.pool.mutate((data) => {
         data.lastSwitch[account.provider] = {
           at: Date.now(),

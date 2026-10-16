@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.10 — 2026-10-16
+
+- Fix: after a switch, Claude Code in VS Code could keep using the previous account (and its quota)
+  while the Account panel showed the new one, whenever the window was not reloaded. The VS Code slot
+  now needs **one reload, once**: after that it stays on and every switch is picked up by running
+  sessions without any reload. The one-time reload is asked in a dialog, not a toast.
+- The terminal's account (VS Code only mode) is marked "in terminal" and skipped by auto switch —
+  one login cannot run in two places. Choosing it by hand offers to **swap** the two accounts.
+- The account shown by `/status` is updated reliably (retried while Claude Code writes its config),
+  and the previous account's cached usage numbers are always cleared.
+
 ## 0.1.9 — 2026-10-16
 
 - **Accounts save themselves:** when you sign in to another Claude Code or Codex account

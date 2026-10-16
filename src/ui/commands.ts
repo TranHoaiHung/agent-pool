@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { AccountService } from "../account-service";
 import { ordered } from "../core/priority";
 import { AccountMeta, PROVIDER_LABEL, PROVIDERS, ProviderId } from "../core/types";
-import { SwitchOutcome } from "../providers/provider";
+import { HeldElsewhereError, SwitchOptions, SwitchOutcome } from "../providers/provider";
 import { UsagePoller } from "../usage-poller";
 import { Node } from "./accounts-tree";
 import { compactUsage } from "./format";
@@ -57,6 +57,18 @@ export async function reportOutcome(outcome: SwitchOutcome, message: string, pro
     await vscode.commands.executeCommand("workbench.action.reloadWindow");
     return;
   }
+  if (outcome.mustReload) {
+    // Until this reload Claude Code keeps spending the previous account: not a toast to miss.
+    const choice = await vscode.window.showWarningMessage(
+      [message, ...outcome.notes].join(" "),
+      { modal: true, detail: "Claude Code in this window keeps using the previous account until the window reloads." },
+      "Reload Window"
+    );
+    if (choice === "Reload Window") {
+      await vscode.commands.executeCommand("workbench.action.reloadWindow");
+    }
+    return;
+  }
   const actions = outcome.needsReload ? ["Reload Window"] : [];
   if (provider) {
     actions.push("Undo");
@@ -88,10 +100,28 @@ export function registerCommands(
   };
 
   const doSwitch = async (account: AccountMeta) => {
-    const outcome = await vscode.window.withProgress(
-      { location: vscode.ProgressLocation.Notification, title: `Switching ${PROVIDER_LABEL[account.provider]} to ${account.label}…` },
-      () => service.switchTo(account.id, false)
-    );
+    const run = (options?: SwitchOptions) =>
+      vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification, title: `Switching ${PROVIDER_LABEL[account.provider]} to ${account.label}…` },
+        () => service.switchTo(account.id, false, undefined, options)
+      );
+    let outcome: SwitchOutcome;
+    try {
+      outcome = await run();
+    } catch (e) {
+      if (!(e instanceof HeldElsewhereError)) {
+        throw e;
+      }
+      const swap = await vscode.window.showWarningMessage(
+        `${account.label} is in use by the ${e.where}. One login cannot run in two places at once.`,
+        { modal: true, detail: `Swap: VS Code takes ${account.label} and the ${e.where} takes the account VS Code uses now. Or turn on "Switch terminal too" to move both together.` },
+        "Swap"
+      );
+      if (swap !== "Swap") {
+        return;
+      }
+      outcome = await run({ swapWithTerminal: true });
+    }
     await reportOutcome(outcome, `${PROVIDER_LABEL[account.provider]} → ${account.label}.`, account.provider);
   };
 

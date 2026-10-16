@@ -5,7 +5,7 @@ import { poolHome } from "../../core/pool-store";
 import { AccountMeta, UsageSnapshot } from "../../core/types";
 import { cliTerminal } from "../cli-locator";
 import { HttpError } from "../http";
-import { Place, Provider, ProviderContext, SwitchOutcome, waitFor } from "../provider";
+import { HeldElsewhereError, Place, Provider, ProviderContext, SwitchOptions, SwitchOutcome, waitFor } from "../provider";
 import { fetchClaudeIdentity, fetchClaudeUsage, isExpiring } from "./claude-api";
 import { clearLive, readLive } from "./claude-credential-store";
 import { ClaudeLiveIndex, UnresolvedLoginError } from "./claude-live-index";
@@ -85,12 +85,20 @@ export class ClaudeProvider implements Provider {
     }
   }
 
-  async switchTo(account: AccountMeta): Promise<SwitchOutcome> {
+  /** VS Code only, slot in use: the terminal's account, which VS Code must not also use. */
+  async heldElsewhere(): Promise<string | undefined> {
+    if (this.terminalToo() || !this.scope.isActive()) {
+      return undefined;
+    }
+    return (await this.index.owner(globalSlot())).accountId;
+  }
+
+  async switchTo(account: AccountMeta, options: SwitchOptions = {}): Promise<SwitchOutcome> {
     const notes: string[] = [];
-    let needsReload = false;
     const scopeActive = this.scope.isActive();
 
     if (this.terminalToo()) {
+      let needsReload = false;
       if (scopeActive) {
         await this.writer.retire(vscodeSlot());
         await this.scope.deactivate();
@@ -98,33 +106,45 @@ export class ClaudeProvider implements Provider {
         notes.push("Claude Code in VS Code now follows the global login again. Reload every open VS Code window.");
       }
       notes.push(...(await this.writer.swapIn(globalSlot(), account)));
-      return { needsReload, notes };
+      return { needsReload, mustReload: needsReload, notes };
     }
 
-    // VS Code only. Following the global slot is enough when it already holds the account:
-    // one login must never be live in two slots (both would spend one refresh token).
+    // VS Code only. One login must never be live in two slots (both would spend one
+    // refresh token), and the VS Code slot, once set up, stays on: switching it again only
+    // rewrites its login, which running sessions pick up without any reload.
     const global = await this.index.owner(globalSlot());
     if (global.unresolved) {
       throw new UnresolvedLoginError();
     }
     if (global.accountId === account.id) {
-      if (scopeActive) {
-        await this.writer.retire(vscodeSlot());
-        await this.scope.deactivate();
-        needsReload = true;
-        notes.push("Reload every open VS Code window so all follow the terminal's login.");
+      if (!scopeActive) {
+        return { needsReload: false, notes }; // VS Code already follows the terminal's login
       }
-      return { needsReload, notes };
+      if (!options.swapWithTerminal) {
+        throw new HeldElsewhereError("terminal");
+      }
+      // Exchange: VS Code takes the terminal's account, the terminal takes VS Code's. The VS
+      // Code slot is emptied first so no login is ever live in both slots at once.
+      const vscodeOwner = await this.index.owner(vscodeSlot(), true);
+      const vscodeAccount = vscodeOwner.accountId ? this.ctx.pool.get().accounts.find((a) => a.id === vscodeOwner.accountId) : undefined;
+      await this.writer.retire(vscodeSlot());
+      if (vscodeAccount) {
+        notes.push(...(await this.writer.swapIn(globalSlot(), vscodeAccount)));
+        notes.push(`The terminal now uses ${vscodeAccount.label}.`);
+      }
+      notes.push(...(await this.writer.swapIn(vscodeSlot(), account)));
+      return { needsReload: false, notes };
     }
     this.scope.prepareFolder();
     notes.push(...(await this.writer.swapIn(vscodeSlot(), account)));
     if (!scopeActive) {
       await this.scope.activate();
-      needsReload = true;
-      notes.push("Claude Code in VS Code now uses its own login slot; the terminal keeps its account.");
+      notes.push("One-time setup: Claude Code in VS Code now has its own login slot (the terminal keeps its account). Reload this window once — from now on switches need no reload.");
+      return { needsReload: true, mustReload: true, notes };
     }
-    return { needsReload, notes };
+    return { needsReload: false, notes };
   }
+
 
   async login(cancel: { isCancellationRequested: boolean }) {
     const dir = path.join(poolHome(), `login-${Date.now()}`);

@@ -15,7 +15,21 @@ export interface ProviderContext {
 export interface SwitchOutcome {
   /** The change needs a window reload (or a tool restart) to take effect. */
   needsReload: boolean;
+  /** Until reloaded, the tool keeps spending the previous account: say so loudly. */
+  mustReload?: boolean;
   notes: string[];
+}
+
+export interface SwitchOptions {
+  /** Claude, VS Code only: the account is the terminal's; exchange the two accounts. */
+  swapWithTerminal?: boolean;
+}
+
+/** The account is in use somewhere else (the terminal) and cannot be live in two places. */
+export class HeldElsewhereError extends Error {
+  constructor(readonly where: string) {
+    super(`This account is in use by the ${where}.`);
+  }
 }
 
 /** A place a provider's login lives, for display (e.g. "Terminal" for Claude's global slot). */
@@ -35,7 +49,9 @@ export interface Provider {
   captureCurrent(): Promise<{ secret: AccountSecret; identity: Identity } | undefined>;
   /** Reads usage, renewing and syncing the login as needed. */
   usage(account: AccountMeta): Promise<UsageSnapshot>;
-  switchTo(account: AccountMeta): Promise<SwitchOutcome>;
+  switchTo(account: AccountMeta, options?: SwitchOptions): Promise<SwitchOutcome>;
+  /** An account live in another place this tool's switches must not take (the terminal's). */
+  heldElsewhere?(): Promise<string | undefined>;
   /** Signs in to another account without touching the one in use. */
   login(cancel: { isCancellationRequested: boolean }): Promise<{ secret: AccountSecret; identity: Identity }>;
   /** Forget cached knowledge of live logins (after an external change). */

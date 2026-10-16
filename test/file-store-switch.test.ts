@@ -50,3 +50,38 @@ describe.skipIf(process.platform === "darwin")("Claude switch on the file store"
     expect((secrets.get("B") as { oauth: { accessToken: string } }).oauth.accessToken).toBe("B-access");
   });
 });
+
+describe.skipIf(process.platform === "darwin")("swap between the terminal and the VS Code slot", () => {
+  it("exchanges accounts without a login ever live in both slots", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ap-swap-"));
+    const terminal = slotForDir("global", path.join(root, "global"));
+    const vscodeSlot = slotForDir("vscode", path.join(root, "vscode"));
+    const secrets = new Map<string, AccountSecret>();
+    const vault = {
+      get: async (id: string) => secrets.get(id),
+      set: async (id: string, s: AccountSecret) => void secrets.set(id, s),
+      delete: async (id: string) => void secrets.delete(id),
+    };
+    const pool = new PoolStore(path.join(root, "pool.json"));
+    const meta = (id: string): AccountMeta => ({ id, provider: "claude", label: id, identityKey: id, inRotation: true, addedAt: 0 });
+    await pool.mutate((d) => (d.accounts = [meta("A"), meta("B")]));
+    const far = Date.now() + 8 * 3_600_000;
+    const A = { accessToken: "A", refreshToken: "A-r", expiresAt: far };
+    const B = { accessToken: "B", refreshToken: "B-r", expiresAt: far };
+    secrets.set("A", { kind: "claude", oauth: A });
+    secrets.set("B", { kind: "claude", oauth: B });
+    const ctx = { pool, vault, log: () => undefined, enroll: async () => { throw new Error("must not enroll"); } };
+    const writer = new ClaudeSlotWriter(ctx, new ClaudeLiveIndex(ctx));
+    await writeLive(terminal, { claudeAiOauth: A });
+    await writeLive(vscodeSlot, { claudeAiOauth: B });
+
+    // The provider's exchange: empty the VS Code slot first, then terminal ← B, VS Code ← A.
+    await writer.retire(vscodeSlot);
+    expect((await readLive(vscodeSlot)).source).toBe("none");
+    await writer.swapIn(terminal, meta("B"));
+    await writer.swapIn(vscodeSlot, meta("A"));
+
+    expect((await readLive(terminal)).doc?.claudeAiOauth?.refreshToken).toBe("B-r");
+    expect((await readLive(vscodeSlot)).doc?.claudeAiOauth?.refreshToken).toBe("A-r");
+  });
+});

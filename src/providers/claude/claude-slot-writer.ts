@@ -187,33 +187,39 @@ export class ClaudeSlotWriter {
     if (!fields || !fs.existsSync(slot.configFile)) {
       return;
     }
-    try {
-      const mtime = fs.statSync(slot.configFile).mtimeMs;
-      const config = JSON.parse(fs.readFileSync(slot.configFile, "utf8")) as Record<string, unknown>;
-      const previous = (config.oauthAccount as Record<string, unknown> | undefined) ?? {};
-      if (previous.accountUuid === fields.accountUuid) {
+    // Claude Code rewrites this file often (and Windows locks it while it does): a write that
+    // lost the race is retried on the fresh file, a few times.
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        const mtime = fs.statSync(slot.configFile).mtimeMs;
+        const config = JSON.parse(fs.readFileSync(slot.configFile, "utf8")) as Record<string, unknown>;
+        const previous = (config.oauthAccount as Record<string, unknown> | undefined) ?? {};
+        if (previous.accountUuid === fields.accountUuid && !config.cachedUsageUtilization) {
+          return;
+        }
+        const next: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(fields)) {
+          if (v !== undefined) {
+            next[k] = v;
+          }
+        }
+        config.oauthAccount = next;
+        // Claude Code stamps this cache with the config's account but fills it from the login
+        // its session holds; kept, it would show the previous account's numbers under this one.
+        delete config.cachedUsageUtilization;
+        if (fs.statSync(slot.configFile).mtimeMs !== mtime) {
+          continue; // changed while we read it: start over on the newer content
+        }
+        const tmp = `${slot.configFile}.agent-pool.tmp`;
+        fs.writeFileSync(tmp, JSON.stringify(config, null, 2), { mode: 0o600 });
+        replaceFile(tmp, slot.configFile);
         return;
-      }
-      const next: Record<string, unknown> = {};
-      for (const [k, v] of Object.entries(fields)) {
-        if (v !== undefined) {
-          next[k] = v;
+      } catch (e) {
+        if (attempt === 4) {
+          this.ctx.log(`Could not update oauthAccount in ${slot.configFile}: ${(e as Error).message}`);
         }
       }
-      config.oauthAccount = next;
-      // Claude Code stamps this cache with the config's account but fills it from the login
-      // its session holds; kept, it would show the previous account's numbers under this one.
-      delete config.cachedUsageUtilization;
-      const text = JSON.stringify(config, null, 2);
-      // Claude Code writes this file often; never replace a write that landed meanwhile.
-      if (fs.statSync(slot.configFile).mtimeMs !== mtime) {
-        return;
-      }
-      const tmp = `${slot.configFile}.agent-pool.tmp`;
-      fs.writeFileSync(tmp, text, { mode: 0o600 });
-      replaceFile(tmp, slot.configFile);
-    } catch (e) {
-      this.ctx.log(`Could not update oauthAccount in ${slot.configFile}: ${(e as Error).message}`);
     }
   }
+
 }
