@@ -79,7 +79,7 @@ files (the session transcript, `git status`); nothing is sent anywhere.
 | Setting | Default | What it does |
 |---|---|---|
 | `agentPool.autoSwitch.thresholdPercent` | 95 | Switch away when the **5-hour** limit reaches this share (50–100). Also: `AgentPool: Set auto-switch threshold`, or click the % in the tooltip. |
-| `agentPool.autoSwitch.weeklyThresholdPercent` | 95 | Same for **weekly / per-model** limits (never below the 5-hour one): 60% of a week still leaves plenty of room. |
+| `agentPool.autoSwitch.weeklyThresholdPercent` | 98 | Same for **weekly / per-model** limits (never below the 5-hour one): 60% of a week still leaves plenty of room. |
 | `agentPool.autoSwitch.enabled` | on | Auto switch on/off. |
 | `agentPool.autoSaveLogins` | on | Save the account you sign in to automatically. |
 | `agentPool.claude.pollIntervalSeconds` / `agentPool.codex.pollIntervalSeconds` | 300 | How often the account in use reads its quota (halved near the threshold). |

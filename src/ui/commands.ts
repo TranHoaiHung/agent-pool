@@ -237,7 +237,7 @@ export function registerCommands(
     const current = cfg.get<number>("autoSwitch.thresholdPercent") ?? 95;
     const value = await vscode.window.showInputBox({
       title: "Auto switch threshold",
-      prompt: "Switch away when the 5-hour limit of the account in use reaches this share (50–100). Weekly limits use their own threshold (setting agentPool.autoSwitch.weeklyThresholdPercent, default 95).",
+      prompt: "Switch away when the 5-hour limit of the account in use reaches this share (50–100). Weekly limits have their own setting: agentPool.autoSwitch.weeklyThresholdPercent (default 98).",
       value: String(current),
       validateInput: (v) => (/^\d+$/.test(v.trim()) && +v >= 50 && +v <= 100 ? undefined : "Enter a whole number from 50 to 100"),
     });

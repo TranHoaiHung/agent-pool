@@ -71,7 +71,7 @@ export class StatusBar {
     md.supportHtml = false;
 
     const auto = cfg.get<boolean>("autoSwitch.enabled", true)
-      ? `auto ✓ [5h ${this.threshold()}% · weekly ${longThreshold()}%](command:agentPool.setThreshold "Change the auto switch threshold")`
+      ? `auto ✓ [5h ${this.threshold()}% · weekly ${longThreshold()}%](command:agentPool.setThreshold "Change the auto switch thresholds")`
       : "auto off";
     const order = accounts.filter((a) => a.inRotation).map((a) => a.label).join(" → ");
     md.appendMarkdown(`**${PROVIDER_LABEL[provider]}**${scope}  \n$(list-ordered) ${order || "—"} · ${auto}\n\n`);

@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { AccountService } from "./account-service";
-import { decide, effectivePercent } from "./core/auto-switch-engine";
+import { decide, effectivePercent, WEEKLY_THRESHOLD } from "./core/auto-switch-engine";
 import { ordered } from "./core/priority";
 import { AccountMeta, PROVIDER_LABEL, ProviderId, UsageRecord } from "./core/types";
 import { HandoffController } from "./handoff/handoff-controller";
@@ -17,10 +17,10 @@ function orgOf(identityKey: string): string {
 }
 
 /** The auto switch threshold from settings, 50–100 (default 95). */
-/** The threshold for weekly / per-model limits (default 95), never below the short one. */
+/** The threshold for weekly / per-model limits (setting, default 98), never below the 5-hour one. */
 export function longThreshold(): number {
-  const value = vscode.workspace.getConfiguration("agentPool").get<number>("autoSwitch.weeklyThresholdPercent") ?? 95;
-  return Math.max(threshold(), Math.min(100, Math.round(value)));
+  const value = vscode.workspace.getConfiguration("agentPool").get<number>("autoSwitch.weeklyThresholdPercent") ?? WEEKLY_THRESHOLD;
+  return Math.max(threshold(), Math.min(100, Math.max(50, Math.round(value))));
 }
 
 /** An account's usage on the scale of the short threshold: weekly limits weigh against their own. */
@@ -260,7 +260,7 @@ export class UsagePoller {
     }
     if (decision.action === "exhausted") {
       const when = decision.soonestReset ? new Date(decision.soonestReset).toLocaleTimeString() : "unknown";
-      const text = `${active?.label ?? "The account in use"} is past its threshold (5h ${threshold()}%, weekly ${longThreshold()}%) and no other account has clearly more room. Staying; soonest reset ${when}.`;
+      const text = `${active?.label ?? "The account in use"} is past its threshold (${threshold()}%, weekly limits ${longThreshold()}%) and no other account has clearly more room. Staying; soonest reset ${when}.`;
       this.service.autoNote.set(provider, text);
       if (data.noticeKeys[provider] !== decision.noticeKey) {
         await this.service.pool.mutate((d) => {

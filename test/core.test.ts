@@ -155,7 +155,7 @@ describe("decide with per-window thresholds (5h vs weekly)", () => {
     ] },
   });
 
-  it("threshold 50: an account at 5h 25% / 7d 60% is a good target (weekly is measured against 95%)", () => {
+  it("threshold 50: an account at 5h 25% / 7d 60% is a good target (weekly limits switch at 98%)", () => {
     const d = decide(input({ accounts: two, thresholdPercent: 50, usage: { B: weekly(80, 20), A: weekly(25, 60) } }));
     expect(d).toMatchObject({ action: "switch", toId: "A", reason: "threshold" });
   });
@@ -165,16 +165,18 @@ describe("decide with per-window thresholds (5h vs weekly)", () => {
     expect(d.action).toBe("none");
   });
 
-  it("a weekly limit near its own threshold still triggers a switch", () => {
-    const d = decide(input({ accounts: two, thresholdPercent: 50, usage: { B: weekly(10, 96), A: weekly(10, 10) } }));
-    expect(d).toMatchObject({ action: "switch", toId: "A" });
+  it("a weekly limit switches only at 98%", () => {
+    expect(decide(input({ accounts: two, thresholdPercent: 50, usage: { B: weekly(10, 97), A: weekly(10, 10) } })).action).toBe("none");
+    expect(decide(input({ accounts: two, thresholdPercent: 50, usage: { B: weekly(10, 98), A: weekly(10, 10) } }))).toMatchObject({ action: "switch", toId: "A" });
   });
 
-  it("the weekly threshold is configurable and never below the 5h one", () => {
-    const d = decide(input({ accounts: two, thresholdPercent: 50, longThresholdPercent: 70, usage: { B: weekly(10, 75), A: weekly(10, 10) } }));
-    expect(d.action).toBe("switch");
-    const e = decide(input({ accounts: two, thresholdPercent: 90, longThresholdPercent: 60, usage: { B: weekly(10, 80), A: weekly(10, 10) } }));
-    expect(e.action).toBe("none"); // 80% < max(90, 60)
+  it("the weekly threshold can be set, never below the 5-hour one", () => {
+    expect(decide(input({ accounts: two, thresholdPercent: 50, longThresholdPercent: 70, usage: { B: weekly(10, 75), A: weekly(10, 10) } })).action).toBe("switch");
+    expect(decide(input({ accounts: two, thresholdPercent: 90, longThresholdPercent: 60, usage: { B: weekly(10, 80), A: weekly(10, 10) } })).action).toBe("none");
+  });
+
+  it("a 5-hour threshold above 98% applies to weekly limits too", () => {
+    expect(decide(input({ accounts: two, thresholdPercent: 100, usage: { B: weekly(10, 99), A: weekly(10, 10) } })).action).toBe("none");
   });
 
   it("with nothing under the thresholds, moves to a clearly emptier account, never between similar ones", () => {

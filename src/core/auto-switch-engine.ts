@@ -7,7 +7,7 @@ export interface DecideInput {
   activeId: string | undefined;
   /** Applies to the short (5-hour) limits. */
   thresholdPercent: number;
-  /** Applies to the long (weekly, per-model) limits; never below `thresholdPercent`. Default 95. */
+  /** Applies to the long (weekly, per-model) limits; never below `thresholdPercent`. Default 98. */
   longThresholdPercent?: number;
   returnToPreferred: boolean;
   /** A reading older than this is not trusted for a decision. */
@@ -30,6 +30,12 @@ export const RETURN_MARGIN = 10;
 /** With no account under the threshold, a switch only goes to one at least this much emptier. */
 export const BEST_ROOM_MARGIN = 10;
 
+/**
+ * Default for weekly and per-model limits, which only matter once nearly used up: the main
+ * threshold is for the 5-hour limit (people can change this one in settings).
+ */
+export const WEEKLY_THRESHOLD = 98;
+
 /** Short windows (5h, 3h, 90m) restart within hours; weekly and monthly ones do not. */
 export function isShortWindow(w: UsageWindow): boolean {
   return w.kind === "session" || /^\d+(h|m)$/.test(w.label);
@@ -37,8 +43,8 @@ export function isShortWindow(w: UsageWindow): boolean {
 
 /**
  * How close an account is to switching, on one scale: 100 means a limit reached its threshold.
- * A 5-hour limit is measured against the threshold the person set; a weekly limit against the
- * long threshold (default 95%) — 60% of a week used still leaves a lot of room.
+ * A 5-hour limit is measured against the threshold the person set; a weekly limit against
+ * WEEKLY_THRESHOLD — 60% of a week used still leaves a lot of room.
  */
 export function pressure(snapshot: UsageSnapshot | undefined, now: number, threshold: number, longThreshold: number): number | undefined {
   if (!snapshot) {
@@ -70,7 +76,7 @@ export function effectivePercent(snapshot: UsageSnapshot | undefined, now: numbe
  */
 export function decide(input: DecideInput): Decision {
   const { accounts, usage, activeId, thresholdPercent, now } = input;
-  const longThreshold = Math.max(thresholdPercent, input.longThresholdPercent ?? 95);
+  const longThreshold = Math.max(thresholdPercent, input.longThresholdPercent ?? WEEKLY_THRESHOLD);
   if (!activeId || (input.quietUntil && now < input.quietUntil)) {
     return { action: "none" };
   }

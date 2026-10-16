@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.13 — 2026-10-16
+
+- Weekly and per-model limits now switch at **98%** by default (was 95%): the threshold you set is for
+  the 5-hour limit; `agentPool.autoSwitch.weeklyThresholdPercent` stays available for those who want
+  to spread weekly use earlier.
+
 ## 0.1.12 — 2026-10-16
 
 - Fix: with a low threshold (e.g. 50%), auto switch stayed on an account at 80% because the other

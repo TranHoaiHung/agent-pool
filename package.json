@@ -2,7 +2,7 @@
   "name": "agent-pool",
   "displayName": "AgentPool — AI Account Switcher",
   "description": "Switch Claude Code & Codex accounts in one click, see every account's quota on hover, and auto-switch before you hit a limit.",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "publisher": "tranhoaihung",
   "license": "MIT",
   "repository": {
@@ -405,10 +405,10 @@
         },
         "agentPool.autoSwitch.weeklyThresholdPercent": {
           "type": "number",
-          "default": 95,
+          "default": 98,
           "minimum": 50,
           "maximum": 100,
-          "markdownDescription": "Switch away when a **weekly** (or per-model) limit reaches this share. Never lower than the 5-hour threshold. 60% of a week used still leaves plenty of room, so this stays high by default.",
+          "markdownDescription": "Switch away when a **weekly** (or per-model) limit reaches this share (default 98; never lower than the 5-hour threshold). 60% of a week used still leaves plenty of room.",
           "order": 3
         }
       }
