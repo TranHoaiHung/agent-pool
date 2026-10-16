@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.6 — 2026-10-16
+
+- **Handoff between Claude accounts.** A few points before the auto switch (default 90% when
+  switching at 95%), Claude writes a short handoff of the work in progress — goal, progress, exact
+  next step, decisions, how to verify. The next conversation on the new account starts from it,
+  without rereading the whole old conversation. Uses two official Claude Code hooks (Stop,
+  SessionStart) added to `~/.claude/settings.json` after you agree once; your other hooks stay
+  untouched. Settings: `agentPool.claude.handoff.enabled`, `agentPool.claude.handoff.marginPercent`.
+
 ## 0.1.5 — 2026-10-15
 
 - Works in Cursor, Windsurf, VSCodium, VS Code Insiders and remote servers: the bundled

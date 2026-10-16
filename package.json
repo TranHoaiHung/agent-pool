@@ -2,7 +2,7 @@
   "name": "agent-pool",
   "displayName": "AgentPool — AI Account Switcher",
   "description": "Switch Claude Code & Codex accounts in one click, see every account's quota on hover, and auto-switch before you hit a limit.",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "publisher": "tranhoaihung",
   "license": "MIT",
   "repository": {
@@ -357,6 +357,18 @@
           "default": 30,
           "minimum": 10,
           "description": "How often accounts not in use read their usage. Auto switch reads them again right before it needs them."
+        },
+        "agentPool.claude.handoff.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Before AgentPool switches Claude accounts, Claude writes a short **handoff** (goal, progress, exact next step) and the next conversation on the new account starts from it. Uses two Claude Code hooks (Stop, SessionStart) added to `~/.claude/settings.json` after you agree once."
+        },
+        "agentPool.claude.handoff.marginPercent": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 30,
+          "description": "Ask for the handoff this many points before the auto switch threshold (e.g. 90% when switching at 95%)."
         }
       }
     }

@@ -11,7 +11,7 @@ export class AccountService {
   private active = new Map<ProviderId, string | undefined>();
   private switching = new Set<ProviderId>();
   private listeners: Array<() => void> = [];
-  private switchListeners: Array<() => void> = [];
+  private switchListeners: Array<(provider: ProviderId) => void> = [];
   /** When this window's extension host started (a reload restarts it). */
   private readonly startedAt = Date.now();
 
@@ -36,7 +36,7 @@ export class AccountService {
   }
 
   /** Called after every successful switch, manual or automatic. */
-  onSwitched(listener: () => void): void {
+  onSwitched(listener: (provider: ProviderId) => void): void {
     this.switchListeners.push(listener);
   }
 
@@ -156,7 +156,7 @@ export class AccountService {
       });
       this.log(`[${account.provider}] ${automatic ? "auto-" : ""}switched ${fromId ?? "?"} → ${id}. ${outcome.notes.join(" ")}`);
       await this.refreshActive();
-      this.switchListeners.forEach((l) => l());
+      this.switchListeners.forEach((l) => l(account.provider));
       return outcome;
     } finally {
       this.switching.delete(account.provider);

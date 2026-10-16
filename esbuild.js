@@ -5,12 +5,12 @@ const watch = process.argv.includes("--watch");
 
 async function main() {
   const ctx = await esbuild.context({
-    entryPoints: ["src/extension.ts"],
+    entryPoints: { extension: "src/extension.ts", "handoff-hook": "src/handoff/handoff-hook.ts" },
     bundle: true,
     format: "cjs",
     platform: "node",
     target: "node20",
-    outfile: "dist/extension.js",
+    outdir: "dist",
     external: ["vscode"],
     sourcemap: !production,
     minify: production,

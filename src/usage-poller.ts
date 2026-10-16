@@ -3,6 +3,7 @@ import { AccountService } from "./account-service";
 import { decide } from "./core/auto-switch-engine";
 import { ordered } from "./core/priority";
 import { AccountMeta, maxUsed, PROVIDER_LABEL, ProviderId, UsageRecord } from "./core/types";
+import { HandoffController } from "./handoff/handoff-controller";
 import { HttpError } from "./providers/http";
 
 const TICK_MS = 60_000;
@@ -29,7 +30,8 @@ export class UsagePoller {
     private readonly service: AccountService,
     private readonly onSwitched: (provider: ProviderId, outcomeNeedsReload: boolean, message: string) => void,
     private readonly notify: (message: string) => void,
-    private readonly isLeader: () => boolean
+    private readonly isLeader: () => boolean,
+    private readonly handoff?: HandoffController
   ) {}
 
   start(): void {
@@ -141,6 +143,13 @@ export class UsagePoller {
     const active = accounts.find((a) => a.id === this.service.activeId(provider));
     const intervalMs = active ? this.interval(active) : 300_000;
     const last = data.lastSwitch[provider];
+    if (provider === "claude" && active) {
+      const usedNow = maxUsed(data.usage[active.id]?.snapshot, Date.now());
+      const hasNext = accounts.some((a) => a.id !== active.id && a.inRotation && !a.needsReauth);
+      if (usedNow !== undefined) {
+        this.handoff?.onActiveUsage(active.label, usedNow, threshold(), hasNext);
+      }
+    }
     const decision = decide({
       accounts,
       usage: data.usage,

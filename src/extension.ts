@@ -3,6 +3,7 @@ import * as path from "path";
 import * as vscode from "vscode";
 import { AccountService } from "./account-service";
 import { LeaderLock } from "./core/leader-lock";
+import { HandoffController } from "./handoff/handoff-controller";
 import { poolHome, PoolStore } from "./core/pool-store";
 import { VsSecretVault } from "./core/secret-vault";
 import { ClaudeProvider } from "./providers/claude/claude-provider";
@@ -43,6 +44,16 @@ export function activate(context: vscode.ExtensionContext): void {
     tree.refresh();
   };
 
+  const handoff = new HandoffController(context, log);
+  void handoff.sync();
+  service.onSwitched((provider) => {
+    if (provider === "claude") {
+      const note = handoff.onSwitched();
+      if (note) {
+        void vscode.window.showInformationMessage(`AgentPool: ${note}`);
+      }
+    }
+  });
   let poller: UsagePoller | undefined;
   const leader = new LeaderLock((isLeader) => {
     log(isLeader ? "this window reads usage (leader)" : "another window reads usage");
@@ -51,7 +62,8 @@ export function activate(context: vscode.ExtensionContext): void {
         service,
         (provider, needsReload, message) => void reportOutcome({ needsReload, notes: [] }, message, provider),
         (message) => void vscode.window.showWarningMessage(message),
-        () => leader.isLeader()
+        () => leader.isLeader(),
+        handoff
       );
       poller.start();
     } else {
@@ -82,6 +94,9 @@ export function activate(context: vscode.ExtensionContext): void {
     { dispose: () => pool.dispose() },
     { dispose: () => clearInterval(followerTimer) },
     vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration("agentPool.claude.handoff")) {
+        void handoff.sync();
+      }
       if (e.affectsConfiguration("agentPool") || e.affectsConfiguration("claudeCode.environmentVariables")) {
         service.providers.forEach((p) => p.invalidate());
         void service.refreshActive().then(() => statusBar.refreshPlaces());
