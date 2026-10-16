@@ -3,16 +3,21 @@ import * as os from "os";
 import * as path from "path";
 import * as vscode from "vscode";
 import { vscodeSlotDir } from "../providers/claude/claude-paths";
-import { clearRequest, readRequest, writeRequest } from "./handoff-files";
+import { clearRequest, handoffCapturedSince, readRequest, writeRequest } from "./handoff-files";
 import { hooksInstalled, installHooks, uninstallHooks, writeLauncher } from "./hook-installer";
 
 const CONSENT_KEY = "agentPool.handoffConsent";
+/** The switch waits for a handoff at most this long after reaching the threshold, and never past 99%. */
+const MAX_HOLD_MS = 5 * 60_000;
+const HOLD_LIMIT_PERCENT = 99;
 
 /**
  * Handoff between Claude accounts: installs AgentPool's two Claude Code hooks (with the
  * person's consent, once), and raises/clears the "write a handoff" request around switches.
  */
 export class HandoffController {
+  private holdingSince?: number;
+
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly log: (message: string) => void
@@ -48,9 +53,16 @@ export class HandoffController {
     }
   }
 
-  /** Called on every usage read of the Claude account in use. */
-  onActiveUsage(label: string, usedPercent: number, thresholdPercent: number, hasNextAccount: boolean): void {
-    if (!this.enabled() || !hasNextAccount || this.context.globalState.get<string>(CONSENT_KEY) !== "yes") {
+  private active(): boolean {
+    return this.enabled() && this.context.globalState.get<string>(CONSENT_KEY) === "yes";
+  }
+
+  /**
+   * Called on every usage read of the Claude account in use. A handoff is asked only when the
+   * next account is in another organization: within one, the session keeps its thinking.
+   */
+  onActiveUsage(label: string, usedPercent: number, thresholdPercent: number, next: { exists: boolean; crossOrg: boolean }): void {
+    if (!this.active() || !next.exists || !next.crossOrg) {
       return;
     }
     if (usedPercent >= thresholdPercent - this.marginPercent()) {
@@ -63,13 +75,44 @@ export class HandoffController {
     }
   }
 
-  /** After a Claude switch: no more handoffs asked of sessions now on the new account. */
-  onSwitched(): string | undefined {
+  /**
+   * A threshold switch waits for the handoff (Claude writes it when it next finishes a reply),
+   * for at most five minutes and never past 99%, so a long turn does not lose it.
+   */
+  shouldHoldSwitch(usedPercent: number): boolean {
+    const request = readRequest();
+    if (!this.active() || !request || handoffCapturedSince(request.at) || usedPercent >= HOLD_LIMIT_PERCENT) {
+      this.holdingSince = undefined;
+      return false;
+    }
+    this.holdingSince ??= Date.now();
+    if (Date.now() - this.holdingSince > MAX_HOLD_MS) {
+      this.holdingSince = undefined;
+      return false;
+    }
+    return true;
+  }
+
+  /** After a Claude switch: what to tell the person, and whether a new conversation should start. */
+  onSwitched(): { note: string; handoff: boolean } | undefined {
     const pending = readRequest();
     clearRequest();
-    return pending && this.enabled()
-      ? "A handoff was asked of the previous session: start a new Claude conversation (or /clear) to continue from it cheaply."
-      : undefined;
+    this.holdingSince = undefined;
+    if (!pending || !this.active()) {
+      return undefined;
+    }
+    const handoff = handoffCapturedSince(pending.at);
+    return {
+      handoff,
+      note: handoff
+        ? "Switched to another organization. A handoff of your work is ready: continue in a new Claude conversation so it starts from it instead of rereading the whole old one."
+        : "Switched to another organization before a handoff was written: a new conversation starts cheaper, the old one has to reread its history.",
+    };
+  }
+
+  /** "ask" (default), "auto" or "off": opening a new Claude conversation after such a switch. */
+  newConversationMode(): string {
+    return vscode.workspace.getConfiguration("agentPool").get<string>("claude.handoff.newConversation") ?? "ask";
   }
 
   private async consent(): Promise<boolean> {

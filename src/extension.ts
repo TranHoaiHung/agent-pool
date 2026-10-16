@@ -47,11 +47,17 @@ export function activate(context: vscode.ExtensionContext): void {
   const handoff = new HandoffController(context, log);
   void handoff.sync();
   service.onSwitched((provider) => {
-    if (provider === "claude") {
-      const note = handoff.onSwitched();
-      if (note) {
-        void vscode.window.showInformationMessage(`AgentPool: ${note}`);
-      }
+    const result = provider === "claude" ? handoff.onSwitched() : undefined;
+    if (!result || service.pendingReload("claude")) {
+      return; // a window that must reload first gets its new conversation after the reload
+    }
+    const open = () => vscode.commands.executeCommand("claude-vscode.newConversation").then(undefined, (e: Error) => log(`new conversation: ${e.message}`));
+    const mode = handoff.newConversationMode();
+    if (mode === "auto") {
+      void open();
+      void vscode.window.showInformationMessage(`AgentPool: ${result.note} Opened a new conversation — type "continue".`);
+    } else if (mode === "ask") {
+      void vscode.window.showInformationMessage(`AgentPool: ${result.note}`, "New conversation").then((c) => c && open());
     }
   });
   let poller: UsagePoller | undefined;

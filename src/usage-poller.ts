@@ -11,6 +11,11 @@ const RATE_LIMIT_BACKOFF_MS = 5 * 60_000;
 const ERROR_RETRY_MS = 60_000;
 const MANUAL_HOLD_MS = 30 * 60_000;
 
+/** Claude identity keys are `accountUuid:organizationUuid`. */
+function orgOf(identityKey: string): string {
+  return identityKey.split(":")[1] ?? "";
+}
+
 /** The auto switch threshold from settings, 50–100 (default 95). */
 export function threshold(): number {
   const value = vscode.workspace.getConfiguration("agentPool").get<number>("autoSwitch.thresholdPercent") ?? 95;
@@ -145,9 +150,16 @@ export class UsagePoller {
     const last = data.lastSwitch[provider];
     if (provider === "claude" && active) {
       const usedNow = maxUsed(data.usage[active.id]?.snapshot, Date.now());
-      const hasNext = accounts.some((a) => a.id !== active.id && a.inRotation && !a.needsReauth);
+      // The account auto switch would go to: the first other one in priority order with room.
+      const next = accounts.find((a) => {
+        const u = maxUsed(data.usage[a.id]?.snapshot, Date.now());
+        return a.id !== active.id && a.inRotation && !a.needsReauth && (u === undefined || u < threshold());
+      });
       if (usedNow !== undefined) {
-        this.handoff?.onActiveUsage(active.label, usedNow, threshold(), hasNext);
+        this.handoff?.onActiveUsage(active.label, usedNow, threshold(), {
+          exists: next !== undefined,
+          crossOrg: next !== undefined && orgOf(next.identityKey) !== orgOf(active.identityKey),
+        });
       }
     }
     const decision = decide({
@@ -174,6 +186,10 @@ export class UsagePoller {
         }
       }
       return; // decided again on the next tick, with the new readings
+    }
+    if (decision.action === "switch" && decision.reason === "threshold" && provider === "claude" && this.handoff?.shouldHoldSwitch(decision.usedPercent)) {
+      this.service.log(`[claude] switch waits for the handoff (${decision.usedPercent}%)`);
+      return;
     }
     if (decision.action === "switch" && !this.isLeader()) {
       return; // leadership moved while reading usage

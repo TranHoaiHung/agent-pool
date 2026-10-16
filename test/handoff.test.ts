@@ -3,7 +3,8 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { beforeEach, describe, expect, it } from "vitest";
-import { HANDOFF_MARKER, handoffFile, onStop, readRequest, takeHandoff, writeRequest } from "../src/handoff/handoff-files";
+import { HANDOFF_MARKER, handoffCapturedSince, handoffFile, onStop, readRequest, takeHandoff, writeRequest } from "../src/handoff/handoff-files";
+import { factsMarkdown, readTranscriptFacts } from "../src/handoff/transcript";
 import { hooksInstalled, installHooks, uninstallHooks, writeLauncher } from "../src/handoff/hook-installer";
 
 let home: string;
@@ -52,6 +53,36 @@ describe("handoff flow", () => {
   });
 });
 
+describe("transcript facts", () => {
+  const line = (o: object) => JSON.stringify(o);
+  it("takes the person's latest requests verbatim and the files changed, skipping IDE tags and tool output", () => {
+    const file = path.join(home, "t.jsonl");
+    fs.writeFileSync(file, [
+      line({ type: "user", message: { content: [{ type: "text", text: "<ide_opened_file>a.ts</ide_opened_file>" }, { type: "text", text: "add a divide-by-zero test" }] } }),
+      line({ type: "assistant", message: { content: [{ type: "tool_use", name: "Edit", input: { file_path: "/p/calc.test.ts" } }] } }),
+      line({ type: "user", message: { content: [{ type: "tool_result", content: "ok" }] } }),
+      line({ type: "user", isMeta: true, message: { content: "Caveat: meta" } }),
+      line({ type: "user", message: { content: [{ type: "text", text: "AgentPool: the Claude account …" }] } }),
+      "{broken",
+      line({ type: "user", message: { content: "then make it pass" } }),
+    ].join("\n"));
+    const facts = readTranscriptFacts(file);
+    expect(facts.requests).toEqual(["add a divide-by-zero test", "then make it pass"]);
+    expect(facts.filesChanged).toEqual(["/p/calc.test.ts"]);
+    expect(factsMarkdown(facts)).toContain("## Latest requests (verbatim)");
+    expect(readTranscriptFacts(path.join(home, "missing.jsonl"))).toEqual({ requests: [], filesChanged: [] });
+  });
+
+  it("appends the facts to the saved handoff and reports it captured", () => {
+    writeRequest("work");
+    const at = readRequest()!.at;
+    expect(handoffCapturedSince(at)).toBe(false);
+    onStop(project, true, `${HANDOFF_MARKER}\n## Goal\nx`, Date.now(), "## Latest requests (verbatim)\n1. do y");
+    expect(fs.readFileSync(handoffFile(project), "utf8")).toMatch(/## Goal\nx\n\n## Latest requests \(verbatim\)\n1\. do y/);
+    expect(handoffCapturedSince(at)).toBe(true);
+  });
+});
+
 describe("hook installer", () => {
   const other = { matcher: "", hooks: [{ type: "command", command: "node other-hook.js" }] };
 
@@ -95,14 +126,17 @@ describe("built hook script", () => {
     const built = path.join(__dirname, "..", "dist", "handoff-hook.js");
     if (!fs.existsSync(built) || process.platform === "win32") return;
     const launcher = writeLauncher(built, process.execPath);
-    const env = { ...process.env, AGENT_POOL_HOME: home, CLAUDE_PROJECT_DIR: project };
+    const env = { ...process.env, AGENT_POOL_HOME: home, CLAUDE_PROJECT_DIR: path.join(__dirname, "..") };
     const run = (mode: string, input: object) =>
       execFileSync(launcher, [mode], { input: JSON.stringify(input), env }).toString();
     writeRequest("work");
     const blocked = JSON.parse(run("stop", { stop_hook_active: false, last_assistant_message: "ok" }));
     expect(blocked.decision).toBe("block");
     expect(run("stop", { stop_hook_active: true, last_assistant_message: `${HANDOFF_MARKER}\nstep 3 next` })).toBe("");
-    expect(run("session-start", { source: "startup" })).toContain("step 3 next");
+    expect(fs.existsSync(handoffFile(path.join(__dirname, "..")))).toBe(true);
+    const started = run("session-start", { source: "startup" });
+    expect(started).toContain("step 3 next");
+    expect(started).toContain("## Repository now"); // the repo root is a git repository
     expect(run("session-start", { source: "startup" })).toBe("");
   });
 });

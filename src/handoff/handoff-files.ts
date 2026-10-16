@@ -60,7 +60,9 @@ export function onStop(
   projectDir: string,
   stopHookActive: boolean,
   lastMessage: string | undefined,
-  now = Date.now()
+  now = Date.now(),
+  /** Appended verbatim (latest requests, files changed): facts, not Claude's summary of them. */
+  extra = ""
 ): string | undefined {
   const request = readRequest(now);
   if (!request) {
@@ -70,7 +72,8 @@ export function onStop(
   const marker = lastMessage?.indexOf(HANDOFF_MARKER) ?? -1;
   if (marker >= 0) {
     fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, lastMessage!.slice(marker + HANDOFF_MARKER.length).trim() + "\n");
+    const summary = lastMessage!.slice(marker + HANDOFF_MARKER.length).trim();
+    fs.writeFileSync(file, [summary, extra.trim()].filter(Boolean).join("\n\n") + "\n");
     return undefined;
   }
   if (stopHookActive || (fs.existsSync(file) && fs.statSync(file).mtimeMs >= request.at)) {
@@ -79,10 +82,25 @@ export function onStop(
   return [
     `AgentPool: the Claude account "${request.from}" is close to its usage limit and will be switched soon.`,
     `Reply now with a handoff so the next session (on another account) can continue without rereading everything.`,
-    `Start the reply with the exact line ${HANDOFF_MARKER} and then, in Markdown, at most ~60 lines:`,
-    `1) Goal; 2) Done so far; 3) In progress — files, functions, exact next step; 4) Decisions and constraints;`,
-    `5) Open questions; 6) How to verify (commands/tests). Do not use tools and do not continue other work in this reply.`,
+    `Start the reply with the exact line ${HANDOFF_MARKER} and then, in Markdown, at most ~80 lines:`,
+    `1) Goal and the person's intent; 2) Done so far; 3) In progress — files, functions, the exact next step;`,
+    `4) Decisions, conventions and constraints agreed in this session (a long session's most valuable part);`,
+    `5) Pitfalls already hit and how they were solved; 6) Open questions; 7) How to verify (commands/tests).`,
+    `The person's latest requests and the files changed are attached automatically: do not repeat them.`,
+    `Do not use tools and do not continue other work in this reply.`,
   ].join("\n");
+}
+
+/** Whether any project saved a handoff at or after `at` (the switch waits for one). */
+export function handoffCapturedSince(at: number): boolean {
+  try {
+    return fs
+      .readdirSync(handoffDir())
+      .filter((n) => n.endsWith(".md"))
+      .some((n) => fs.statSync(path.join(handoffDir(), n)).mtimeMs >= at);
+  } catch {
+    return false;
+  }
 }
 
 /** SessionStart hook: the handoff for this project as context, then archived (read once). */

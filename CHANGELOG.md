@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.7 — 2026-10-16
+
+- Smarter handoff for long sessions: besides Claude's summary (now also conventions agreed and
+  pitfalls already hit), the hook attaches your latest requests **verbatim** and the files changed,
+  read from the session transcript; the new conversation also gets the current `git status` and
+  recent commits, so work done after the handoff is not missed.
+- Handoff only when switching to another organization (within one, Claude keeps its thinking).
+- The switch waits for the handoff (up to 5 minutes, never past 99%) so a long turn cannot skip it.
+- After the switch: a "New conversation" button (`agentPool.claude.handoff.newConversation`:
+  `ask` by default, `auto`, or `off`) opens a Claude conversation that starts from the handoff.
+
 ## 0.1.6 — 2026-10-16
 
 - **Handoff between Claude accounts.** A few points before the auto switch (default 90% when

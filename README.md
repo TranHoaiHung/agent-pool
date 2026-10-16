@@ -50,14 +50,20 @@ Manage several **Claude Code** and **Codex** accounts in VS Code:
 
 ## Handoff between Claude accounts
 
-Switching to an account in another organization means Claude cannot reuse its earlier thinking and
-rereads the whole conversation. AgentPool avoids that with a **handoff**:
+Switching to an account in **another organization** means Claude cannot reuse its earlier thinking
+("Claude can't use thinking from another organization") and rereads the whole conversation. On a long
+session that is slow and costly. AgentPool avoids it with a **handoff**:
 
-1. A few points before the switch (default 90% when switching at 95%), the next time Claude finishes
-   a reply it is asked for a short handoff: goal, progress, exact next step, decisions, how to verify.
-2. AgentPool switches at the threshold and tells you to start a new conversation (or `/clear`).
-3. The new conversation, on the new account, starts from the handoff, then the handoff is archived (kept 7 days).
+1. A few points before the switch (default 90% when switching at 95%), the next time Claude finishes a
+   reply it writes a handoff: goal, progress, exact next step, decisions and conventions agreed,
+   pitfalls already hit, how to verify. AgentPool attaches your **latest requests verbatim** and the
+   **files changed**, read from the session transcript.
+2. The switch waits for that handoff (up to 5 minutes, never past 99%), then offers a
+   **New conversation** button (or opens one automatically).
+3. The new conversation, on the new account, starts from the handoff plus the current `git status`
+   and recent commits — just type "continue". The handoff is then archived (kept 7 days).
 
+Switching within one organization needs none of this, so no handoff is asked.
 It uses two official [Claude Code hooks](https://code.claude.com/docs/en/hooks) (Stop, SessionStart),
 added to `~/.claude/settings.json` only after you agree once; your other hooks are left as they are.
 Turn it off with `agentPool.claude.handoff.enabled` (the hooks are removed).
@@ -70,7 +76,8 @@ Turn it off with `agentPool.claude.handoff.enabled` (the hooks are removed).
 | `agentPool.autoSwitch.enabled` | on | Auto switch on/off. |
 | `agentPool.claude.pollIntervalSeconds` / `agentPool.codex.pollIntervalSeconds` | 300 | How often the account in use reads its quota (halved near the threshold). |
 | `agentPool.idlePollMinutes` | 30 | How often accounts not in use read their quota. |
-| `agentPool.claude.handoff.enabled` / `.marginPercent` | on / 5 | Handoff before a Claude switch, asked this many points before the threshold. |
+| `agentPool.claude.handoff.enabled` / `.marginPercent` | on / 5 | Handoff before a switch to another organization, asked this many points before the threshold. |
+| `agentPool.claude.handoff.newConversation` | ask | After such a switch: `ask` (button), `auto` (open a new conversation), `off`. |
 | `agentPool.claude.switchTerminalToo` | off | Switch the terminal's `claude` too (see below). |
 
 To remove an account: 🗑 on its row in the AgentPool view or in the quick view, or `AgentPool: Remove account`.
