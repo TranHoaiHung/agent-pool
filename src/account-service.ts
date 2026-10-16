@@ -10,6 +10,8 @@ export class AccountService {
   /** Account VS Code uses per tool, as last read. */
   private active = new Map<ProviderId, string | undefined>();
   private held = new Map<ProviderId, string | undefined>();
+  /** Why auto switch is not switching right now, for the tooltip. */
+  readonly autoNote = new Map<ProviderId, string>();
   private switching = new Set<ProviderId>();
   private listeners: Array<() => void> = [];
   private switchListeners: Array<(provider: ProviderId) => void> = [];

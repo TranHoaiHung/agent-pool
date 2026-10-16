@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.12 — 2026-10-16
+
+- Fix: with a low threshold (e.g. 50%), auto switch stayed on an account at 80% because every
+  other account was also past 50% on some limit (e.g. its weekly 60%). When no account is under
+  the threshold, AgentPool now moves to the one with the most room, if it is at least 10 points
+  less used — so the current account is not run to 100%, and two similar accounts never trade
+  places on every reading.
+- When AgentPool stays put, the tooltip says why (and the notice no longer claims every account is
+  "at the limit").
+
 ## 0.1.11 — 2026-10-16
 
 - Fix: auto switch could stay blocked while a window waited for a reload it never got (status bar

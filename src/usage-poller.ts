@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { AccountService } from "./account-service";
-import { decide } from "./core/auto-switch-engine";
+import { BEST_ROOM_MARGIN, decide } from "./core/auto-switch-engine";
 import { ordered } from "./core/priority";
 import { AccountMeta, maxUsed, PROVIDER_LABEL, ProviderId, UsageRecord } from "./core/types";
 import { HandoffController } from "./handoff/handoff-controller";
@@ -245,12 +245,19 @@ export class UsagePoller {
       } catch (e) {
         this.service.log(`[${provider}] auto switch failed: ${(e as Error).message}`);
       }
-    } else if (decision.action === "exhausted" && data.noticeKeys[provider] !== decision.noticeKey) {
-      await this.service.pool.mutate((d) => {
-        d.noticeKeys[provider] = decision.noticeKey;
-      });
+    }
+    if (decision.action === "exhausted") {
       const when = decision.soonestReset ? new Date(decision.soonestReset).toLocaleTimeString() : "unknown";
-      this.notify(`${PROVIDER_LABEL[provider]}: every account in rotation is at the limit. Soonest reset: ${when}.`);
+      const text = `${active?.label ?? "The account in use"} is past ${threshold()}% and no other account has clearly more room (at least ${BEST_ROOM_MARGIN} points less used). Staying; soonest reset ${when}.`;
+      this.service.autoNote.set(provider, text);
+      if (data.noticeKeys[provider] !== decision.noticeKey) {
+        await this.service.pool.mutate((d) => {
+          d.noticeKeys[provider] = decision.noticeKey;
+        });
+        this.notify(`${PROVIDER_LABEL[provider]}: ${text}`);
+      }
+    } else {
+      this.service.autoNote.delete(provider);
     }
   }
 }

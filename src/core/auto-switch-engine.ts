@@ -24,6 +24,9 @@ export type Decision =
 /** Hysteresis: a higher-priority account is gone back to only this far below the threshold. */
 export const RETURN_MARGIN = 10;
 
+/** With no account under the threshold, a switch only goes to one at least this much emptier. */
+export const BEST_ROOM_MARGIN = 10;
+
 /**
  * Decides what auto switch does for one provider. It follows the user's priority order,
  * not the account with the most room: the first eligible account down the list wins.
@@ -69,6 +72,17 @@ export function decide(input: DecideInput): Decision {
       .map((a) => a.id);
     if (unknown.length > 0) {
       return { action: "refresh", ids: unknown };
+    }
+    // Nothing under the threshold (a low threshold, or weekly limits): still move to the account
+    // with the most room when it is clearly emptier, so the current one is not run to 100%.
+    // The margin keeps two similar accounts from trading places on every reading.
+    const roomiest = accounts
+      .filter((a) => a.id !== activeId && a.inRotation && !a.needsReauth)
+      .map((a) => ({ a, u: used(a.id) as number }))
+      .filter(({ u }) => u <= activeUsed - BEST_ROOM_MARGIN && u < 100)
+      .sort((x, y) => x.u - y.u)[0];
+    if (roomiest) {
+      return { action: "switch", toId: roomiest.a.id, reason: "threshold", usedPercent: activeUsed };
     }
     const soonestReset = soonestRecovery(accounts, usage, now, thresholdPercent);
     return {

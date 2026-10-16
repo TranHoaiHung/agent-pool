@@ -145,3 +145,29 @@ describe("decide with a user threshold", () => {
     expect(decide(input({ thresholdPercent: 100, usage: { B: usage(100), A: usage(0) } }))).toMatchObject({ action: "switch", toId: "A" });
   });
 });
+
+describe("decide when nothing is under the threshold", () => {
+  const two = [account("B"), account("A")];
+  const weekly = (five: number, seven: number): UsageRecord => ({
+    snapshot: { fetchedAt: NOW, windows: [
+      { kind: "session", label: "5h", percent: five, resetsAt: NOW + 3_600_000 },
+      { kind: "weekly_all", label: "7d", percent: seven, resetsAt: NOW + 86_400_000 },
+    ] },
+  });
+
+  it("moves to the clearly emptier account (threshold 50: B at 80%, A at 5h 25% / 7d 60%)", () => {
+    const d = decide(input({ accounts: two, thresholdPercent: 50, usage: { B: weekly(80, 20), A: weekly(25, 60) } }));
+    expect(d).toMatchObject({ action: "switch", toId: "A", reason: "threshold" });
+  });
+
+  it("does not trade places between similar accounts", () => {
+    const d = decide(input({ accounts: two, activeId: "A", thresholdPercent: 50, usage: { A: weekly(25, 60), B: weekly(80, 20) } }));
+    expect(d.action).toBe("exhausted");
+  });
+
+  it("still prefers an account under the threshold, in priority order", () => {
+    const three = [account("B"), account("A"), account("C")];
+    const d = decide(input({ accounts: three, thresholdPercent: 50, usage: { B: weekly(80, 20), A: weekly(25, 60), C: weekly(10, 10) } }));
+    expect(d).toMatchObject({ action: "switch", toId: "C" });
+  });
+});

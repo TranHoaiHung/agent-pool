@@ -75,6 +75,10 @@ export class StatusBar {
       : "auto off";
     const order = accounts.filter((a) => a.inRotation).map((a) => a.label).join(" → ");
     md.appendMarkdown(`**${PROVIDER_LABEL[provider]}**${scope}  \n$(list-ordered) ${order || "—"} · ${auto}\n\n`);
+    const note = this.service.autoNote.get(provider);
+    if (note) {
+      md.appendMarkdown(`$(info) ${note}\n\n`);
+    }
     if (this.service.pendingReload(provider)) {
       md.appendMarkdown(
         `$(warning) **[Reload this window](command:workbench.action.reloadWindow)**: ${PROVIDER_LABEL[provider]} here still runs the previous account. Auto switch waits until then.\n\n`
