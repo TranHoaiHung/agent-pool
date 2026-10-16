@@ -3,7 +3,16 @@ import * as os from "os";
 import * as path from "path";
 import * as vscode from "vscode";
 import { vscodeSlotDir } from "../providers/claude/claude-paths";
-import { clearRequest, handoffCapturedSince, readRequest, writeRequest } from "./handoff-files";
+import {
+  clearCompacted,
+  clearRequest,
+  compactedSince,
+  handoffCapturedSince,
+  handoffDir,
+  HandoffMode,
+  readRequest,
+  writeRequest,
+} from "./handoff-files";
 import { hooksInstalled, installHooks, uninstallHooks, writeLauncher } from "./hook-installer";
 
 const CONSENT_KEY = "agentPool.handoffConsent";
@@ -25,6 +34,33 @@ export class HandoffController {
 
   enabled(): boolean {
     return vscode.workspace.getConfiguration("agentPool").get<boolean>("claude.handoff.enabled", true);
+  }
+
+  mode(): HandoffMode {
+    const m = vscode.workspace.getConfiguration("agentPool").get<string>("claude.handoff.mode");
+    return m === "newConversation" ? "newConversation" : "compact";
+  }
+
+  /**
+   * Compact mode: calls `onCompacted` when a conversation was compacted while a switch is due,
+   * so AgentPool switches right away (before more replies add thinking from the old account).
+   */
+  watchCompaction(onCompacted: () => void): vscode.Disposable {
+    fs.mkdirSync(handoffDir(), { recursive: true });
+    let timer: NodeJS.Timeout | undefined;
+    const watcher = fs.watch(handoffDir(), (_e, name) => {
+      if (name !== "compacted.json") {
+        return;
+      }
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        const request = readRequest();
+        if (request && compactedSince(request.at)) {
+          onCompacted();
+        }
+      }, 500);
+    });
+    return { dispose: () => watcher.close() };
   }
 
   marginPercent(): number {
@@ -67,8 +103,11 @@ export class HandoffController {
     }
     if (usedPercent >= thresholdPercent - this.marginPercent()) {
       if (!readRequest()) {
-        writeRequest(label);
-        this.log(`handoff requested: ${label} at ${usedPercent}%`);
+        writeRequest(label, this.mode());
+        this.log(`handoff requested (${this.mode()}): ${label} at ${usedPercent}%`);
+        if (this.mode() === "compact") {
+          void this.promptCompact(label, usedPercent);
+        }
       }
     } else if (readRequest()?.from === label) {
       clearRequest(); // the account recovered (its window reset) before switching
@@ -81,7 +120,8 @@ export class HandoffController {
    */
   shouldHoldSwitch(usedPercent: number): boolean {
     const request = readRequest();
-    if (!this.active() || !request || handoffCapturedSince(request.at) || usedPercent >= HOLD_LIMIT_PERCENT) {
+    // Compact mode never waits: without a compaction by the threshold, the switch goes ahead.
+    if (!this.active() || !request || request.mode === "compact" || handoffCapturedSince(request.at) || usedPercent >= HOLD_LIMIT_PERCENT) {
       this.holdingSince = undefined;
       return false;
     }
@@ -96,10 +136,20 @@ export class HandoffController {
   /** After a Claude switch: what to tell the person, and whether a new conversation should start. */
   onSwitched(): { note: string; handoff: boolean } | undefined {
     const pending = readRequest();
+    const compacted = pending ? compactedSince(pending.at) : false;
     clearRequest();
+    clearCompacted();
     this.holdingSince = undefined;
     if (!pending || !this.active()) {
       return undefined;
+    }
+    if (pending.mode === "compact") {
+      return {
+        handoff: false,
+        note: compacted
+          ? "Switched right after the compaction: keep going in the same conversation — it continues from its summary."
+          : "Switched without a compaction: the same conversation continues, but its first reply rereads the history (slower, more tokens).",
+      };
     }
     const handoff = handoffCapturedSince(pending.at);
     return {
@@ -110,9 +160,22 @@ export class HandoffController {
     };
   }
 
-  /** "ask" (default), "auto" or "off": opening a new Claude conversation after such a switch. */
+  /** Compact mode at the margin: one click copies /compact and focuses Claude's input. */
+  private async promptCompact(label: string, usedPercent: number): Promise<void> {
+    const choice = await vscode.window.showInformationMessage(
+      `AgentPool: Claude "${label}" is at ${usedPercent}%. Run /compact in Claude now — AgentPool switches accounts right after and the same conversation continues from its summary. Without it, the switch happens at the threshold anyway.`,
+      "Compact now"
+    );
+    if (choice === "Compact now") {
+      await vscode.env.clipboard.writeText("/compact");
+      await vscode.commands.executeCommand("claude-vscode.focus").then(undefined, () => undefined);
+      void vscode.window.showInformationMessage("AgentPool: /compact copied — paste it in Claude's input and press Enter.");
+    }
+  }
+
+  /** "off" (default), "ask" or "auto": opening a new Claude conversation after such a switch. */
   newConversationMode(): string {
-    return vscode.workspace.getConfiguration("agentPool").get<string>("claude.handoff.newConversation") ?? "ask";
+    return vscode.workspace.getConfiguration("agentPool").get<string>("claude.handoff.newConversation") ?? "off";
   }
 
   private async consent(): Promise<boolean> {

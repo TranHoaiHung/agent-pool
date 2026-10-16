@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { beforeEach, describe, expect, it } from "vitest";
-import { HANDOFF_MARKER, handoffCapturedSince, handoffFile, onStop, readRequest, takeHandoff, writeRequest } from "../src/handoff/handoff-files";
+import { compactedSince, compactReminder, markCompacted, HANDOFF_MARKER, handoffCapturedSince, handoffFile, onStop, readRequest, takeHandoff, writeRequest } from "../src/handoff/handoff-files";
 import { factsMarkdown, readTranscriptFacts } from "../src/handoff/transcript";
 import { hooksInstalled, installHooks, uninstallHooks, writeLauncher } from "../src/handoff/hook-installer";
 
@@ -50,6 +50,20 @@ describe("handoff flow", () => {
   it("ignores a request older than two hours", () => {
     writeRequest("work");
     expect(readRequest(Date.now() + 3 * 3_600_000)).toBeUndefined();
+  });
+});
+
+describe("compact mode", () => {
+  it("never blocks Claude; reminds in the panel; records a compaction while a switch is due", () => {
+    expect(compactReminder()).toBeUndefined();
+    expect(markCompacted(project)).toBe(false); // no switch due: an ordinary /compact is ignored
+    writeRequest("work", "compact");
+    const at = readRequest()!.at;
+    expect(onStop(project, false, "done")).toBeUndefined();
+    expect(compactReminder()).toContain("/compact");
+    expect(compactedSince(at)).toBe(false);
+    expect(markCompacted(project)).toBe(true);
+    expect(compactedSince(at)).toBe(true);
   });
 });
 
@@ -138,5 +152,19 @@ describe("built hook script", () => {
     expect(started).toContain("step 3 next");
     expect(started).toContain("## Repository now"); // the repo root is a git repository
     expect(run("session-start", { source: "startup" })).toBe("");
+  });
+
+  it("compact mode: a reminder after each reply, facts and a switch signal after /compact", () => {
+    const built = path.join(__dirname, "..", "dist", "handoff-hook.js");
+    if (!fs.existsSync(built) || process.platform === "win32") return;
+    const launcher = writeLauncher(built, process.execPath);
+    const env = { ...process.env, AGENT_POOL_HOME: home, CLAUDE_PROJECT_DIR: path.join(__dirname, "..") };
+    const run = (mode: string, input: object) =>
+      execFileSync(launcher, [mode], { input: JSON.stringify(input), env }).toString();
+    writeRequest("work", "compact");
+    expect(JSON.parse(run("stop", { stop_hook_active: false })).systemMessage).toContain("/compact");
+    const after = run("session-start", { source: "compact" });
+    expect(after).toContain("compacted before switching");
+    expect(fs.existsSync(path.join(home, "handoff", "compacted.json"))).toBe(true);
   });
 });

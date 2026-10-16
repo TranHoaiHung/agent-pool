@@ -46,12 +46,17 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const handoff = new HandoffController(context, log);
   void handoff.sync();
+  context.subscriptions.push(handoff.watchCompaction(() => void poller?.switchNow("claude", "compacted near the limit")));
   service.onSwitched((provider) => {
     const result = provider === "claude" ? handoff.onSwitched() : undefined;
     if (!result || service.pendingReload("claude")) {
       return; // a window that must reload first gets its new conversation after the reload
     }
     const open = () => vscode.commands.executeCommand("claude-vscode.newConversation").then(undefined, (e: Error) => log(`new conversation: ${e.message}`));
+    if (!result.handoff) {
+      void vscode.window.showInformationMessage(`AgentPool: ${result.note}`);
+      return;
+    }
     const mode = handoff.newConversationMode();
     if (mode === "auto") {
       void open();

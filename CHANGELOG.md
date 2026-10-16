@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.8 — 2026-10-16
+
+- **Compact mode** (new default, `agentPool.claude.handoff.mode`): near the limit (default 90%)
+  AgentPool asks you to run `/compact` — a "Compact now" button copies it and focuses Claude, and a
+  reminder line appears in the Claude panel after each reply. Right after the compaction AgentPool
+  switches accounts and **the same conversation continues** from its summary, which also gets your
+  latest requests verbatim, the files changed and `git status`. Without a compaction, the switch
+  still happens at the threshold — nothing waits.
+- No new conversations are opened unless you choose `newConversation` mode
+  (`agentPool.claude.handoff.newConversation` now defaults to `off`).
+
 ## 0.1.7 — 2026-10-16
 
 - Smarter handoff for long sessions: besides Claude's summary (now also conventions agreed and

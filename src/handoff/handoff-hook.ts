@@ -5,7 +5,7 @@
  * Any failure exits 0 with no output, so a broken handoff never blocks Claude.
  */
 import { execFileSync } from "child_process";
-import { onStop, takeHandoff } from "./handoff-files";
+import { compactReminder, markCompacted, onStop, takeHandoff } from "./handoff-files";
 import { factsMarkdown, readTranscriptFacts } from "./transcript";
 
 interface HookInput {
@@ -37,10 +37,21 @@ async function main(): Promise<void> {
     const saving = input.last_assistant_message?.includes("agentpool-handoff") === true;
     const extra = saving ? factsMarkdown(readTranscriptFacts(input.transcript_path)) : "";
     const reason = onStop(projectDir, input.stop_hook_active === true, input.last_assistant_message, Date.now(), extra);
+    const reminder = compactReminder();
     if (reason) {
       process.stdout.write(JSON.stringify({ decision: "block", reason }));
+    } else if (reminder && input.stop_hook_active !== true) {
+      process.stdout.write(JSON.stringify({ systemMessage: reminder }));
     }
-  } else if (mode === "session-start" && input.source !== "compact") {
+  } else if (mode === "session-start" && input.source === "compact") {
+    // Right after /compact (or auto-compaction): tell AgentPool to switch now, and give the
+    // summary back the facts a summary tends to lose.
+    if (markCompacted(projectDir)) {
+      const facts = factsMarkdown(readTranscriptFacts(input.transcript_path));
+      const header = "AgentPool: this conversation was compacted before switching Claude accounts. Facts kept verbatim:";
+      process.stdout.write([header, facts, gitSnapshot(projectDir)].filter(Boolean).join("\n\n"));
+    }
+  } else if (mode === "session-start") {
     const context = takeHandoff(projectDir);
     if (context) {
       process.stdout.write([context, gitSnapshot(projectDir)].filter(Boolean).join("\n\n"));

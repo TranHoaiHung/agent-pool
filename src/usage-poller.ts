@@ -138,6 +138,33 @@ export class UsagePoller {
     }
   }
 
+  /**
+   * Switches the provider to the next account in priority order with room, right now (used
+   * after a compaction near the limit). Leader only; respects pending reloads.
+   */
+  async switchNow(provider: ProviderId, why: string): Promise<void> {
+    if (!this.isLeader() || this.service.pendingReload(provider)) {
+      return;
+    }
+    const data = this.service.pool.get();
+    const activeId = this.service.activeId(provider);
+    const next = ordered(data, provider).find((a) => {
+      const u = maxUsed(data.usage[a.id]?.snapshot, Date.now());
+      return a.id !== activeId && a.inRotation && !a.needsReauth && u !== undefined && u < threshold();
+    });
+    if (!next) {
+      this.service.log(`[${provider}] ${why}, but no account with room to switch to`);
+      return;
+    }
+    const from = this.service.account(activeId ?? "");
+    try {
+      const outcome = await this.service.switchTo(next.id, true, "threshold");
+      this.onSwitched(provider, outcome.needsReload, `${PROVIDER_LABEL[provider]}: switched ${from?.label ?? "?"} → ${next.label} (${why}).`);
+    } catch (e) {
+      this.service.log(`[${provider}] switch after ${why} failed: ${(e as Error).message}`);
+    }
+  }
+
   private async autoSwitch(provider: ProviderId): Promise<void> {
     const cfg = vscode.workspace.getConfiguration("agentPool");
     if (!cfg.get<boolean>("autoSwitch.enabled", true) || this.service.pendingReload(provider)) {

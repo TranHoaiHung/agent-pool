@@ -11,10 +11,18 @@ const REQUEST_MAX_AGE_MS = 2 * 3_600_000;
 const HANDOFF_MAX_AGE_MS = 24 * 3_600_000;
 const ARCHIVE_DAYS = 7;
 
+/**
+ * "compact": you run /compact near the limit and AgentPool switches right after, so the same
+ * conversation continues from its summary. "newConversation": Claude writes a handoff reply and
+ * a new conversation starts from it.
+ */
+export type HandoffMode = "compact" | "newConversation";
+
 export interface HandoffRequest {
   at: number;
   /** Label of the account about to be left. */
   from: string;
+  mode?: HandoffMode;
 }
 
 export function handoffDir(): string {
@@ -29,9 +37,9 @@ export function handoffFile(projectDir: string): string {
   return path.join(handoffDir(), `${path.basename(projectDir) || "project"}-${hash}.md`);
 }
 
-export function writeRequest(from: string): void {
+export function writeRequest(from: string, mode: HandoffMode = "newConversation"): void {
   fs.mkdirSync(handoffDir(), { recursive: true });
-  const request: HandoffRequest = { at: Date.now(), from };
+  const request: HandoffRequest = { at: Date.now(), from, mode };
   fs.writeFileSync(path.join(handoffDir(), "request.json"), JSON.stringify(request));
 }
 
@@ -65,8 +73,8 @@ export function onStop(
   extra = ""
 ): string | undefined {
   const request = readRequest(now);
-  if (!request) {
-    return undefined;
+  if (!request || request.mode === "compact") {
+    return undefined; // compact mode never interrupts Claude (see compactReminder)
   }
   const file = handoffFile(projectDir);
   const marker = lastMessage?.indexOf(HANDOFF_MARKER) ?? -1;
@@ -89,6 +97,41 @@ export function onStop(
     `The person's latest requests and the files changed are attached automatically: do not repeat them.`,
     `Do not use tools and do not continue other work in this reply.`,
   ].join("\n");
+}
+
+/**
+ * Compact mode, Stop hook: a one-line reminder shown in the Claude panel after each reply
+ * (non-blocking; Claude is not asked to do anything).
+ */
+export function compactReminder(now = Date.now()): string | undefined {
+  const request = readRequest(now);
+  return request?.mode === "compact"
+    ? `AgentPool: "${request.from}" is near its usage limit. Type /compact now — AgentPool switches accounts right after, and this conversation continues from its summary.`
+    : undefined;
+}
+
+/** Compact mode, SessionStart(compact): records that a compaction happened while a switch is due. */
+export function markCompacted(projectDir: string, now = Date.now()): boolean {
+  const request = readRequest(now);
+  if (request?.mode !== "compact") {
+    return false;
+  }
+  fs.writeFileSync(path.join(handoffDir(), "compacted.json"), JSON.stringify({ at: now, project: projectDir }));
+  return true;
+}
+
+/** Whether a compaction happened at or after `at` (AgentPool then switches at once). */
+export function compactedSince(at: number): boolean {
+  try {
+    const c = JSON.parse(fs.readFileSync(path.join(handoffDir(), "compacted.json"), "utf8")) as { at: number };
+    return c.at >= at;
+  } catch {
+    return false;
+  }
+}
+
+export function clearCompacted(): void {
+  fs.rmSync(path.join(handoffDir(), "compacted.json"), { force: true });
 }
 
 /** Whether any project saved a handoff at or after `at` (the switch waits for one). */

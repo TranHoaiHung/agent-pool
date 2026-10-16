@@ -48,25 +48,29 @@ Manage several **Claude Code** and **Codex** accounts in VS Code:
 2. **Add account** (＋ in the AgentPool view, or the welcome message) for each other account. It signs in through an isolated login in a terminal + your browser; the account in use is untouched. No CLI to install: AgentPool uses the `claude` / `codex` that ships with the official extensions.
 3. **Drag** accounts into the order you want. Done — hover the status bar to watch quotas; auto switch handles the rest.
 
-## Handoff between Claude accounts
+## Long sessions across organizations
 
 Switching to an account in **another organization** means Claude cannot reuse its earlier thinking
-("Claude can't use thinking from another organization") and rereads the whole conversation. On a long
-session that is slow and costly. AgentPool avoids it with a **handoff**:
+("Claude can't use thinking from another organization") and rereads the whole conversation — slow and
+costly on a long session. AgentPool keeps you in the **same conversation** (compact mode, default):
 
-1. A few points before the switch (default 90% when switching at 95%), the next time Claude finishes a
-   reply it writes a handoff: goal, progress, exact next step, decisions and conventions agreed,
-   pitfalls already hit, how to verify. AgentPool attaches your **latest requests verbatim** and the
-   **files changed**, read from the session transcript.
-2. The switch waits for that handoff (up to 5 minutes, never past 99%), then offers a
-   **New conversation** button (or opens one automatically).
-3. The new conversation, on the new account, starts from the handoff plus the current `git status`
-   and recent commits — just type "continue". The handoff is then archived (kept 7 days).
+1. Near the limit (default 90% when switching at 95%), AgentPool asks you to run `/compact`:
+   a **Compact now** button copies it and focuses Claude, and a reminder appears in the Claude panel
+   after each reply.
+2. Right after the compaction AgentPool switches accounts. The summary also gets your **latest
+   requests verbatim**, the **files changed** and the current `git status`.
+3. Keep typing in the same conversation: its first reply reads the short summary, not the whole history.
 
-Switching within one organization needs none of this, so no handoff is asked.
+No compaction by the threshold? AgentPool switches anyway — the conversation still continues, its first
+reply just rereads the history. Switching within one organization needs none of this.
+
+Prefer a fresh conversation instead? Set `agentPool.claude.handoff.mode` to `newConversation`: Claude
+writes a handoff and the next conversation starts from it.
+
 It uses two official [Claude Code hooks](https://code.claude.com/docs/en/hooks) (Stop, SessionStart),
 added to `~/.claude/settings.json` only after you agree once; your other hooks are left as they are.
-Turn it off with `agentPool.claude.handoff.enabled` (the hooks are removed).
+Turn it off with `agentPool.claude.handoff.enabled` (the hooks are removed). The hooks read only local
+files (the session transcript, `git status`); nothing is sent anywhere.
 
 ## Settings
 
@@ -76,8 +80,9 @@ Turn it off with `agentPool.claude.handoff.enabled` (the hooks are removed).
 | `agentPool.autoSwitch.enabled` | on | Auto switch on/off. |
 | `agentPool.claude.pollIntervalSeconds` / `agentPool.codex.pollIntervalSeconds` | 300 | How often the account in use reads its quota (halved near the threshold). |
 | `agentPool.idlePollMinutes` | 30 | How often accounts not in use read their quota. |
-| `agentPool.claude.handoff.enabled` / `.marginPercent` | on / 5 | Handoff before a switch to another organization, asked this many points before the threshold. |
-| `agentPool.claude.handoff.newConversation` | ask | After such a switch: `ask` (button), `auto` (open a new conversation), `off`. |
+| `agentPool.claude.handoff.enabled` / `.marginPercent` | on / 5 | Long-session help when switching to another organization, starting this many points before the threshold. |
+| `agentPool.claude.handoff.mode` | compact | `compact` (same conversation, /compact before the switch) or `newConversation`. |
+| `agentPool.claude.handoff.newConversation` | off | newConversation mode only: `ask` (button) or `auto`. |
 | `agentPool.claude.switchTerminalToo` | off | Switch the terminal's `claude` too (see below). |
 
 To remove an account: 🗑 on its row in the AgentPool view or in the quick view, or `AgentPool: Remove account`.
