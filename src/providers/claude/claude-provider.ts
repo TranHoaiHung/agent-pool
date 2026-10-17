@@ -87,17 +87,39 @@ export class ClaudeProvider implements Provider {
 
   /** VS Code only, slot in use: the terminal's account, which VS Code must not also use. */
   async heldElsewhere(): Promise<string | undefined> {
+    const pin = this.terminalPin();
+    if (pin) {
+      return pin; // reserved for the terminal, whatever VS Code does
+    }
     if (this.terminalToo() || !this.scope.isActive()) {
       return undefined;
     }
     return (await this.index.owner(globalSlot())).accountId;
   }
 
+  /** The account pinned to the terminal, if any (and still saved). */
+  terminalPin(): string | undefined {
+    const data = this.ctx.pool.get();
+    return data.accounts.some((a) => a.id === data.terminalPin) ? data.terminalPin : undefined;
+  }
+
+  /**
+   * Puts `account` in the terminal's login (the system one every `claude` reads), parking what
+   * was there. Refused while VS Code uses that account: one login never runs in two places.
+   */
+  async setTerminalAccount(account: AccountMeta): Promise<string[]> {
+    if (this.scope.isActive() && (await this.index.owner(vscodeSlot(), true)).accountId === account.id) {
+      throw new HeldElsewhereError("VS Code");
+    }
+    return this.writer.swapIn(globalSlot(), account);
+  }
+
   async switchTo(account: AccountMeta, options: SwitchOptions = {}): Promise<SwitchOutcome> {
     const notes: string[] = [];
     const scopeActive = this.scope.isActive();
 
-    if (this.terminalToo()) {
+    // A pinned terminal account is never moved by VS Code: "switch terminal too" yields to it.
+    if (this.terminalToo() && !this.terminalPin()) {
       let needsReload = false;
       if (scopeActive) {
         await this.writer.retire(vscodeSlot());
@@ -116,11 +138,14 @@ export class ClaudeProvider implements Provider {
     if (global.unresolved) {
       throw new UnresolvedLoginError();
     }
+    if (account.id === this.terminalPin() && scopeActive) {
+      throw new HeldElsewhereError("terminal", true);
+    }
     if (global.accountId === account.id) {
       if (!scopeActive) {
         return { needsReload: false, notes }; // VS Code already follows the terminal's login
       }
-      if (!options.swapWithTerminal) {
+      if (!options.swapWithTerminal || this.terminalPin()) {
         throw new HeldElsewhereError("terminal");
       }
       // Exchange: VS Code takes the terminal's account, the terminal takes VS Code's. The VS

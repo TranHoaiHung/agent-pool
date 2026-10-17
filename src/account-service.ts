@@ -218,6 +218,30 @@ export class AccountService {
     }
   }
 
+  /** Claude only: puts the account in the terminal's login and pins it there. */
+  async pinToTerminal(id: string): Promise<string[]> {
+    const account = this.account(id);
+    const provider = this.providers.get("claude") as (Provider & { setTerminalAccount?(a: AccountMeta): Promise<string[]> }) | undefined;
+    if (!account || account.provider !== "claude" || !provider?.setTerminalAccount) {
+      throw new Error("Only a Claude Code account can be pinned to the terminal.");
+    }
+    const notes = await provider.setTerminalAccount(account);
+    await this.pool.mutate((d) => {
+      d.terminalPin = id;
+    });
+    provider.invalidate();
+    await this.refreshActive();
+    this.log(`[claude] terminal pinned to ${account.label}`);
+    return notes;
+  }
+
+  async unpinTerminal(): Promise<void> {
+    await this.pool.mutate((d) => {
+      delete d.terminalPin;
+    });
+    await this.refreshActive();
+  }
+
   async remove(id: string): Promise<void> {
     await this.pool.mutate((data) => {
       const removed = data.accounts.find((a) => a.id === id);
@@ -225,6 +249,9 @@ export class AccountService {
         data.removedIdentities = [...new Set([...(data.removedIdentities ?? []), removed.identityKey])];
       }
       data.accounts = data.accounts.filter((a) => a.id !== id);
+      if (data.terminalPin === id) {
+        delete data.terminalPin;
+      }
       for (const p of PROVIDERS) {
         data.order[p] = data.order[p].filter((x) => x !== id);
       }

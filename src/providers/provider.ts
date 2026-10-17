@@ -27,8 +27,12 @@ export interface SwitchOptions {
 
 /** The account is in use somewhere else (the terminal) and cannot be live in two places. */
 export class HeldElsewhereError extends Error {
-  constructor(readonly where: string) {
-    super(`This account is in use by the ${where}.`);
+  constructor(
+    readonly where: string,
+    /** Pinned there by the person: never offered as a swap. */
+    readonly pinned = false
+  ) {
+    super(pinned ? `This account is pinned to the ${where}.` : `This account is in use by the ${where}.`);
   }
 }
 

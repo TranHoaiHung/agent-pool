@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.14 — 2026-10-17
+
+- **Pin an account to the terminal** (Claude Code): right-click an account → *Use for terminal (pin)*.
+  Every `claude` you run in a terminal uses it, and nothing done in VS Code — auto switch, manual
+  switch, swap, "switch terminal too" — ever changes it. The pinned account is marked "📌 terminal"
+  and is never used by VS Code. *AgentPool: Unpin terminal account* releases it.
+
 ## 0.1.13 — 2026-10-16
 
 - Weekly and per-model limits now switch at **98%** by default (was 95%): the threshold you set is for

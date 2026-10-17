@@ -2,7 +2,7 @@
   "name": "agent-pool",
   "displayName": "AgentPool — AI Account Switcher",
   "description": "Switch Claude Code & Codex accounts in one click, see every account's quota on hover, and auto-switch before you hit a limit.",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "publisher": "tranhoaihung",
   "license": "MIT",
   "repository": {
@@ -157,6 +157,17 @@
         "title": "Set auto-switch threshold (%)",
         "category": "AgentPool",
         "icon": "$(dashboard)"
+      },
+      {
+        "command": "agentPool.useForTerminal",
+        "title": "Use for terminal (pin)",
+        "category": "AgentPool",
+        "icon": "$(terminal)"
+      },
+      {
+        "command": "agentPool.unpinTerminal",
+        "title": "Unpin terminal account",
+        "category": "AgentPool"
       }
     ],
     "menus": {
@@ -195,6 +206,11 @@
           "command": "agentPool.undo",
           "when": "view == agentPool.accounts",
           "group": "1_settings@3"
+        },
+        {
+          "command": "agentPool.unpinTerminal",
+          "when": "view == agentPool.accounts",
+          "group": "1_settings@4"
         }
       ],
       "view/item/context": [
@@ -237,6 +253,11 @@
           "command": "agentPool.remove",
           "when": "view == agentPool.accounts && viewItem =~ /^account/",
           "group": "2_manage@2"
+        },
+        {
+          "command": "agentPool.useForTerminal",
+          "when": "view == agentPool.accounts && viewItem =~ /^account/",
+          "group": "1_main@3"
         }
       ],
       "commandPalette": [

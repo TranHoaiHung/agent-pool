@@ -112,6 +112,12 @@ export function registerCommands(
       if (!(e instanceof HeldElsewhereError)) {
         throw e;
       }
+      if (e.pinned) {
+        void vscode.window.showInformationMessage(
+          `${account.label} is pinned to the terminal, so VS Code does not use it. Unpin it first (AgentPool: Unpin terminal account).`
+        );
+        return;
+      }
       const swap = await vscode.window.showWarningMessage(
         `${account.label} is in use by the ${e.where}. One login cannot run in two places at once.`,
         { modal: true, detail: `Swap: VS Code takes ${account.label} and the ${e.where} takes the account VS Code uses now. Or turn on "Switch terminal too" to move both together.` },
@@ -230,6 +236,22 @@ export function registerCommands(
   reg("agentPool.toggleRotation", async (arg) => {
     const account = accountFrom(service, arg);
     if (account) await service.update(account.id, (a) => (a.inRotation = !a.inRotation));
+  });
+
+  reg("agentPool.useForTerminal", async (arg) => {
+    const account =
+      accountFrom(service, arg) ??
+      (await pickAccount(service, "Pin which Claude Code account to the terminal?"));
+    if (!account) return;
+    const notes = await service.pinToTerminal(account.id);
+    void vscode.window.showInformationMessage(
+      [`Terminal pinned to ${account.label}: every \`claude\` you run there uses it, and VS Code switches never touch it.`, ...notes].join(" ")
+    );
+  });
+
+  reg("agentPool.unpinTerminal", async () => {
+    await service.unpinTerminal();
+    void vscode.window.showInformationMessage("Terminal account unpinned.");
   });
 
   reg("agentPool.setThreshold", async () => {

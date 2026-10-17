@@ -74,6 +74,8 @@ export interface PoolData {
   noticeKeys: Partial<Record<ProviderId, string>>;
   /** Identity keys the person removed: auto-save skips them until they are saved by hand. */
   removedIdentities?: string[];
+  /** Claude account pinned to the terminal: VS Code never uses, swaps or switches it. */
+  terminalPin?: string;
 }
 
 export function emptyPool(): PoolData {
