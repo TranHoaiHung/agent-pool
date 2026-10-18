@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.15 — 2026-10-18
+
+- Fix: an old VS Code window that had not reloaded after the one-time slot setup blocked auto switch
+  for every window, so the account in use ran from 94% to 100% and Claude stopped until a reload.
+  Auto switch now always happens at the threshold; only a window that really still runs the old
+  setup is asked to reload (it is detected exactly — by the slot setting it started with — instead
+  of by time, so windows are no longer flagged after ordinary switches).
+
 ## 0.1.14 — 2026-10-17
 
 - **Pin an account to the terminal** (Claude Code): right-click an account → *Use for terminal (pin)*.

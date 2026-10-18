@@ -28,6 +28,10 @@ export function activate(context: vscode.ExtensionContext): void {
   service.register(new ClaudeProvider(service.providerContext(), scope));
   service.register(new CodexProvider(service.providerContext()));
   removeStaleLogins(log);
+  // Claude Code in this window was started with the slot setting as it is now; it needs a
+  // reload only when that setting changes afterwards (not because of switches in other windows).
+  const scopeAtStart = scope.isActive();
+  service.setReloadCheck("claude", () => scope.isActive() !== scopeAtStart);
   if (scope.isActive()) {
     scope.prepareFolder(); // pick up shared items added since
   }

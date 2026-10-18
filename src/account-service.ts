@@ -10,6 +10,7 @@ export class AccountService {
   /** Account VS Code uses per tool, as last read. */
   private active = new Map<ProviderId, string | undefined>();
   private held = new Map<ProviderId, string | undefined>();
+  private reloadChecks = new Map<ProviderId, () => boolean>();
   /** Why auto switch is not switching right now, for the tooltip. */
   readonly autoNote = new Map<ProviderId, string>();
   private switching = new Set<ProviderId>();
@@ -56,8 +57,17 @@ export class AccountService {
    * the previous account, so what AgentPool calls "in use" is not what is being spent.
    */
   pendingReload(provider: ProviderId): boolean {
+    const exact = this.reloadChecks.get(provider);
+    if (exact) {
+      return exact(); // the provider knows precisely whether this window runs a stale setup
+    }
     const last = this.pool.get().lastSwitch[provider];
     return (last?.reloadAt ?? 0) > this.startedAt;
+  }
+
+  /** A precise "this window must reload" test for a provider (Claude: the VS Code slot setting). */
+  setReloadCheck(provider: ProviderId, check: () => boolean): void {
+    this.reloadChecks.set(provider, check);
   }
 
   /** The account another place holds (the terminal's, in VS Code only mode): never switched to automatically. */

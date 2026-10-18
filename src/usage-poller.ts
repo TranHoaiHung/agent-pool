@@ -184,8 +184,6 @@ export class UsagePoller {
     if (!cfg.get<boolean>("autoSwitch.enabled", true)) {
       return;
     }
-    // A window started before a reload-needing switch still runs an older account: it must not
-    // switch on numbers that are not its own — but it must say so, not wait in silence.
     const pending = this.service.pendingReload(provider);
     const data = this.service.pool.get();
     // The terminal's account (VS Code only mode) is not a candidate: it cannot be live twice.
@@ -234,11 +232,10 @@ export class UsagePoller {
       }
       return; // decided again on the next tick, with the new readings
     }
-    if (pending) {
-      if (decision.action === "switch") {
-        this.onReloadNeeded?.(provider);
-      }
-      return;
+    // A window that still runs a stale setup does not hold the switch back for everyone: the
+    // switch happens (other windows and new sessions use it); this window is asked to reload.
+    if (pending && decision.action === "switch") {
+      this.onReloadNeeded?.(provider);
     }
     if (decision.action === "switch" && decision.reason === "threshold" && provider === "claude" && this.handoff?.shouldHoldSwitch(decision.usedPercent)) {
       this.service.log(`[claude] switch waits for the handoff (${decision.usedPercent}%)`);

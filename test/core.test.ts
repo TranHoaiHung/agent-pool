@@ -186,3 +186,20 @@ describe("decide with per-window thresholds (5h vs weekly)", () => {
     expect(e.action).toBe("exhausted");
   });
 });
+
+describe("exact reload check", () => {
+  it("a provider's own check wins over the time-based flag", async () => {
+    const { AccountService } = await import("../src/account-service");
+    const { PoolStore } = await import("../src/core/pool-store");
+    const pool = new PoolStore(path.join(fs.mkdtempSync(path.join(os.tmpdir(), "ap-rc-")), "pool.json"));
+    const service = new AccountService(pool, { get: async () => undefined, set: async () => {}, delete: async () => {} }, () => {});
+    await new Promise((r) => setTimeout(r, 5));
+    await pool.mutate((d) => (d.lastSwitch.claude = { at: Date.now(), toId: "x", automatic: true, reloadAt: Date.now() }));
+    expect(service.pendingReload("claude")).toBe(true); // time-based: started before reloadAt
+    let settingChanged = false;
+    service.setReloadCheck("claude", () => settingChanged);
+    expect(service.pendingReload("claude")).toBe(false); // same slot setting as at start: no reload
+    settingChanged = true;
+    expect(service.pendingReload("claude")).toBe(true);
+  });
+});
