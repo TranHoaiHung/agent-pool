@@ -102,10 +102,13 @@ To remove an account: 🗑 on its row in the AgentPool view or in the quick view
 
 The VS Code slot links your `~/.claude` items (CLAUDE.md, agents, skills, commands, hooks, settings, plugins, projects…) so your config stays the same; only the login and `.claude.json` are separate. The first switch into the slot, and switching back to the terminal's account, need one window reload. Later switches are picked up by running sessions within ~35 s.
 
-One login is never live in two slots: both would spend the same single-use refresh token.
+When VS Code and the terminal use the same account, AgentPool keeps their two copies of the login on
+one generation (it renews early and copies any newer token across), since a refresh token can only be
+used once.
 
-**Keep one account for the terminal:** right-click it → *Use for terminal (pin)*. VS Code then never
-uses, swaps or switches it, whatever its own switches do.
+**Choose the terminal's account:** right-click it → *Use for terminal (pin)*. VS Code switches never
+move the terminal, and VS Code can still use that same account — AgentPool keeps both copies of the
+login in sync.
 
 **Windows and Linux:** Claude Code keeps its login in `.credentials.json` instead of the Keychain; AgentPool switches that file the same way. On Windows, shared folders are linked as junctions (no admin rights or Developer Mode needed) and shared files as hard links or refreshed copies.
 

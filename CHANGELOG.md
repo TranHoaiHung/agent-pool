@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.16 — 2026-10-19
+
+- **VS Code can use the terminal's account too.** Picking the account the terminal uses no longer
+  asks to swap or refuses a pinned account: both keep it, and AgentPool keeps the two copies of the
+  login on one generation (it renews early, holding both locks, and copies any newer token across
+  every minute), so neither side is ever signed out.
+- The terminal is never moved by VS Code switches anymore — no swap, and unpinning changes nothing
+  but the pin. "Use for terminal (pin)" simply sets the terminal's account.
+
 ## 0.1.15 — 2026-10-18
 
 - Fix: an old VS Code window that had not reloaded after the one-time slot setup blocked auto switch

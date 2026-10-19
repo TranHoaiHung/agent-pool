@@ -10,6 +10,8 @@ import { ClaudeLiveIndex, UnresolvedLoginError } from "./claude-live-index";
 import { ClaudeSlot } from "./claude-paths";
 
 const LOCK_TIMEOUT_MS = 20_000;
+/** A login shared by two slots is renewed this long before it expires (Claude Code waits for 5 min). */
+const MIRROR_RENEW_MS = 30 * 60_000;
 
 /**
  * Every change to a Claude Code slot. Each runs under Claude Code's own refresh and write
@@ -127,6 +129,48 @@ export class ClaudeSlotWriter {
       });
     });
     this.index.invalidate(slot.dir);
+  }
+
+  /**
+   * The same account live in several slots (the terminal's account used by VS Code too): keeps
+   * one generation of its login everywhere. It renews early (well before Claude Code's own
+   * 5-minute margin), holding every slot's refresh lock, and writes the result to all slots,
+   * so no Claude Code process ever spends a refresh token another slot still holds.
+   * Returns the shared login, or undefined when the slots no longer hold the same account.
+   */
+  async keepMirrored(slots: ClaudeSlot[], accountId: string): Promise<ClaudeOAuth | undefined> {
+    return withLocks(slots.flatMap((s) => refreshLocks(s.dir)), LOCK_TIMEOUT_MS, async () => {
+      // Re-checked under the locks: a switch may have moved one slot to another account since.
+      const owners = [];
+      for (const s of slots) {
+        owners.push(await this.index.owner(s, true)); // fresh read; identity cached by token fingerprint
+      }
+      if (owners.some((o) => o.accountId !== accountId || !o.oauth?.refreshToken)) {
+        return undefined;
+      }
+      const current = owners.map((o) => o.oauth);
+      let newest = current.reduce((a, b) => ((b!.expiresAt ?? 0) > (a!.expiresAt ?? 0) ? b : a))!;
+      if (typeof newest.expiresAt === "number" && newest.expiresAt - MIRROR_RENEW_MS < Date.now()) {
+        newest = await refreshClaude(newest);
+        await this.index.sync(accountId, newest); // the old refresh token is spent: vault first
+      }
+      for (let i = 0; i < slots.length; i++) {
+        const had = current[i]!;
+        if (had.refreshToken === newest.refreshToken && had.accessToken === newest.accessToken) {
+          continue;
+        }
+        await withLocks([writeLock(slots[i].dir)], LOCK_TIMEOUT_MS, async () => {
+          const again = await readLive(slots[i]);
+          if (again.doc?.claudeAiOauth?.refreshToken !== had.refreshToken) {
+            return; // changed under us: the next pass reconciles
+          }
+          await writeLive(slots[i], { ...again.doc, claudeAiOauth: newest });
+        });
+        this.index.invalidate(slots[i].dir);
+      }
+      await this.index.sync(accountId, newest);
+      return newest;
+    });
   }
 
   /** The account's parked login, renewed under its cross-window lock when expiring. */

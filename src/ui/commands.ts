@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { AccountService } from "../account-service";
 import { ordered } from "../core/priority";
 import { AccountMeta, PROVIDER_LABEL, PROVIDERS, ProviderId } from "../core/types";
-import { HeldElsewhereError, SwitchOptions, SwitchOutcome } from "../providers/provider";
+import { SwitchOutcome } from "../providers/provider";
 import { UsagePoller } from "../usage-poller";
 import { Node } from "./accounts-tree";
 import { compactUsage } from "./format";
@@ -100,34 +100,10 @@ export function registerCommands(
   };
 
   const doSwitch = async (account: AccountMeta) => {
-    const run = (options?: SwitchOptions) =>
-      vscode.window.withProgress(
-        { location: vscode.ProgressLocation.Notification, title: `Switching ${PROVIDER_LABEL[account.provider]} to ${account.label}…` },
-        () => service.switchTo(account.id, false, undefined, options)
-      );
-    let outcome: SwitchOutcome;
-    try {
-      outcome = await run();
-    } catch (e) {
-      if (!(e instanceof HeldElsewhereError)) {
-        throw e;
-      }
-      if (e.pinned) {
-        void vscode.window.showInformationMessage(
-          `${account.label} is pinned to the terminal, so VS Code does not use it. Unpin it first (AgentPool: Unpin terminal account).`
-        );
-        return;
-      }
-      const swap = await vscode.window.showWarningMessage(
-        `${account.label} is in use by the ${e.where}. One login cannot run in two places at once.`,
-        { modal: true, detail: `Swap: VS Code takes ${account.label} and the ${e.where} takes the account VS Code uses now. Or turn on "Switch terminal too" to move both together.` },
-        "Swap"
-      );
-      if (swap !== "Swap") {
-        return;
-      }
-      outcome = await run({ swapWithTerminal: true });
-    }
+    const outcome = await vscode.window.withProgress(
+      { location: vscode.ProgressLocation.Notification, title: `Switching ${PROVIDER_LABEL[account.provider]} to ${account.label}…` },
+      () => service.switchTo(account.id, false)
+    );
     await reportOutcome(outcome, `${PROVIDER_LABEL[account.provider]} → ${account.label}.`, account.provider);
   };
 
@@ -245,7 +221,7 @@ export function registerCommands(
     if (!account) return;
     const notes = await service.pinToTerminal(account.id);
     void vscode.window.showInformationMessage(
-      [`Terminal pinned to ${account.label}: every \`claude\` you run there uses it, and VS Code switches never touch it.`, ...notes].join(" ")
+      [`Terminal pinned to ${account.label}: every \`claude\` you run there uses it. VS Code can use it too (kept in sync) and never moves the terminal off it.`, ...notes].join(" ")
     );
   });
 

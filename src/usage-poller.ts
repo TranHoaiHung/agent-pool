@@ -82,6 +82,7 @@ export class UsagePoller {
         await this.read(account, false);
       }
       for (const provider of ["claude", "codex"] as ProviderId[]) {
+        await this.service.providers.get(provider)?.maintain?.().catch((e: Error) => this.service.log(`[${provider}] upkeep: ${e.message}`));
         await this.autoSwitch(provider);
       }
     } catch (e) {

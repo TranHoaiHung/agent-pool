@@ -49,8 +49,9 @@ export class AccountsTree implements vscode.TreeDataProvider<Node>, vscode.TreeD
     const data = this.service.pool.get();
     const isActive = this.service.activeId(account.provider) === account.id;
     const item = new vscode.TreeItem(`${rank}. ${account.label}`, vscode.TreeItemCollapsibleState.None);
-    const pinned = this.service.pool.get().terminalPin === account.id;
-    const inTerminal = pinned ? "📌 terminal · " : this.service.heldElsewhere(account.provider) === account.id ? "in terminal · " : "";
+    const inTerminal = this.service.terminalAccount(account.provider) === account.id
+      ? this.service.pool.get().terminalPin === account.id ? "📌 terminal · " : "terminal · "
+      : "";
     item.description = account.needsReauth ? "needs sign-in" : inTerminal + compactUsage(data.usage[account.id]);
     item.tooltip = [account.email, account.orgName, account.plan, account.inRotation ? undefined : "excluded from auto switch"]
       .filter(Boolean)

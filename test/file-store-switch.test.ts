@@ -85,3 +85,46 @@ describe.skipIf(process.platform === "darwin")("swap between the terminal and th
     expect((await readLive(vscodeSlot)).doc?.claudeAiOauth?.refreshToken).toBe("A-r");
   });
 });
+
+describe.skipIf(process.platform === "darwin")("one account shared by the terminal and VS Code", () => {
+  it("keeps both copies on the newest generation, and never touches a different account", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ap-mirror-"));
+    const terminal = slotForDir("global", path.join(root, "global"));
+    const vscodeSlot = slotForDir("vscode", path.join(root, "vscode"));
+    const secrets = new Map<string, AccountSecret>();
+    const vault = {
+      get: async (id: string) => secrets.get(id),
+      set: async (id: string, s: AccountSecret) => void secrets.set(id, s),
+      delete: async (id: string) => void secrets.delete(id),
+    };
+    const pool = new PoolStore(path.join(root, "pool.json"));
+    const meta = (id: string): AccountMeta => ({ id, provider: "claude", label: id, identityKey: id, inRotation: true, addedAt: 0 });
+    await pool.mutate((d) => (d.accounts = [meta("A"), meta("B")]));
+    const far = Date.now() + 8 * 3_600_000;
+    const older = { accessToken: "A1", refreshToken: "A1-r", expiresAt: far };
+    const newer = { accessToken: "A2", refreshToken: "A2-r", expiresAt: far + 60_000 };
+    // The vault knows both generations of A (as after a sync), so both slots identify as A.
+    secrets.set("A", { kind: "claude", oauth: older });
+    const ctx = { pool, vault, log: () => undefined, enroll: async () => { throw new Error("must not enroll"); } };
+    const index = new ClaudeLiveIndex(ctx);
+    const writer = new ClaudeSlotWriter(ctx, index);
+    await writeLive(terminal, { claudeAiOauth: older, mcpOAuth: { keep: 1 } });
+    await writeLive(vscodeSlot, { claudeAiOauth: older });
+    expect((await writer.keepMirrored([terminal, vscodeSlot], "A"))?.refreshToken).toBe("A1-r");
+
+    // Claude Code in VS Code rotated A: the terminal gets the newer generation too.
+    await writeLive(vscodeSlot, { claudeAiOauth: newer });
+    await index.sync("A", newer);
+    const shared = await writer.keepMirrored([terminal, vscodeSlot], "A");
+    expect(shared?.refreshToken).toBe("A2-r");
+    expect((await readLive(terminal)).doc).toEqual({ claudeAiOauth: newer, mcpOAuth: { keep: 1 } });
+
+    // VS Code moved to B meanwhile: nothing is copied anywhere.
+    secrets.set("B", { kind: "claude", oauth: { accessToken: "B", refreshToken: "B-r", expiresAt: far } });
+    await writeLive(vscodeSlot, { claudeAiOauth: { accessToken: "B", refreshToken: "B-r", expiresAt: far } });
+    index.invalidate();
+    expect(await writer.keepMirrored([terminal, vscodeSlot], "A")).toBeUndefined();
+    expect((await readLive(terminal)).doc?.claudeAiOauth?.refreshToken).toBe("A2-r");
+    expect((await readLive(vscodeSlot)).doc?.claudeAiOauth?.refreshToken).toBe("B-r");
+  });
+});

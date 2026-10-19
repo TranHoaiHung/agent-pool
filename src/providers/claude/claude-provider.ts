@@ -5,7 +5,7 @@ import { poolHome } from "../../core/pool-store";
 import { AccountMeta, UsageSnapshot } from "../../core/types";
 import { cliTerminal } from "../cli-locator";
 import { HttpError } from "../http";
-import { HeldElsewhereError, Place, Provider, ProviderContext, SwitchOptions, SwitchOutcome, waitFor } from "../provider";
+import { Place, Provider, ProviderContext, SwitchOutcome, waitFor } from "../provider";
 import { fetchClaudeIdentity, fetchClaudeUsage, isExpiring } from "./claude-api";
 import { clearLive, readLive } from "./claude-credential-store";
 import { ClaudeLiveIndex, UnresolvedLoginError } from "./claude-live-index";
@@ -86,14 +86,13 @@ export class ClaudeProvider implements Provider {
   }
 
   /** VS Code only, slot in use: the terminal's account, which VS Code must not also use. */
+  /** Nothing is withheld from VS Code: the terminal's account can be shared (kept in sync). */
   async heldElsewhere(): Promise<string | undefined> {
-    const pin = this.terminalPin();
-    if (pin) {
-      return pin; // reserved for the terminal, whatever VS Code does
-    }
-    if (this.terminalToo() || !this.scope.isActive()) {
-      return undefined;
-    }
+    return undefined;
+  }
+
+  /** The account the terminal's `claude` uses (the system login), for display. */
+  async terminalAccountId(): Promise<string | undefined> {
     return (await this.index.owner(globalSlot())).accountId;
   }
 
@@ -103,18 +102,46 @@ export class ClaudeProvider implements Provider {
     return data.accounts.some((a) => a.id === data.terminalPin) ? data.terminalPin : undefined;
   }
 
+  /** The two slots when they hold the same account (VS Code sharing the terminal's account). */
+  private async sharedAccount(): Promise<string | undefined> {
+    if (!this.scope.isActive()) {
+      return undefined;
+    }
+    const [terminal, vscodeOwner] = [await this.index.owner(globalSlot()), await this.index.owner(vscodeSlot())];
+    return terminal.accountId && terminal.accountId === vscodeOwner.accountId ? terminal.accountId : undefined;
+  }
+
+  /** Called every minute (leader): keeps a shared account's two copies on one generation. */
+  async maintain(): Promise<void> {
+    const shared = await this.sharedAccount();
+    if (shared) {
+      await this.writer.keepMirrored([globalSlot(), vscodeSlot()], shared);
+    }
+  }
+
+  /** Makes sure the vault holds the newest generation of a login live in `slot`. */
+  private async freshFrom(slot: ClaudeSlot, account: AccountMeta): Promise<void> {
+    const owner = await this.index.owner(slot, true);
+    if (owner.accountId === account.id && owner.oauth) {
+      // Renew through the slot (its refresh lock) rather than from the vault copy: a refresh
+      // from the vault would spend the token the slot still holds.
+      const oauth = isExpiring(owner.oauth) ? await this.writer.renewLive(slot, account.id) : owner.oauth;
+      await this.index.sync(account.id, oauth);
+    }
+  }
+
   /**
    * Puts `account` in the terminal's login (the system one every `claude` reads), parking what
-   * was there. Refused while VS Code uses that account: one login never runs in two places.
+   * was there. When VS Code uses it too, both copies are kept in sync.
    */
   async setTerminalAccount(account: AccountMeta): Promise<string[]> {
-    if (this.scope.isActive() && (await this.index.owner(vscodeSlot(), true)).accountId === account.id) {
-      throw new HeldElsewhereError("VS Code");
+    if (this.scope.isActive()) {
+      await this.freshFrom(vscodeSlot(), account);
     }
     return this.writer.swapIn(globalSlot(), account);
   }
 
-  async switchTo(account: AccountMeta, options: SwitchOptions = {}): Promise<SwitchOutcome> {
+  async switchTo(account: AccountMeta): Promise<SwitchOutcome> {
     const notes: string[] = [];
     const scopeActive = this.scope.isActive();
 
@@ -131,33 +158,21 @@ export class ClaudeProvider implements Provider {
       return { needsReload, mustReload: needsReload, notes };
     }
 
-    // VS Code only. One login must never be live in two slots (both would spend one
-    // refresh token), and the VS Code slot, once set up, stays on: switching it again only
-    // rewrites its login, which running sessions pick up without any reload.
+    // VS Code only: the terminal's login is never touched. The VS Code slot, once set up,
+    // stays on; switching it only rewrites its login, which running sessions pick up.
     const global = await this.index.owner(globalSlot());
     if (global.unresolved) {
       throw new UnresolvedLoginError();
     }
-    if (account.id === this.terminalPin() && scopeActive) {
-      throw new HeldElsewhereError("terminal", true);
+    if (global.accountId === account.id && !scopeActive) {
+      return { needsReload: false, notes }; // VS Code already follows the terminal's login
     }
     if (global.accountId === account.id) {
-      if (!scopeActive) {
-        return { needsReload: false, notes }; // VS Code already follows the terminal's login
-      }
-      if (!options.swapWithTerminal || this.terminalPin()) {
-        throw new HeldElsewhereError("terminal");
-      }
-      // Exchange: VS Code takes the terminal's account, the terminal takes VS Code's. The VS
-      // Code slot is emptied first so no login is ever live in both slots at once.
-      const vscodeOwner = await this.index.owner(vscodeSlot(), true);
-      const vscodeAccount = vscodeOwner.accountId ? this.ctx.pool.get().accounts.find((a) => a.id === vscodeOwner.accountId) : undefined;
-      await this.writer.retire(vscodeSlot());
-      if (vscodeAccount) {
-        notes.push(...(await this.writer.swapIn(globalSlot(), vscodeAccount)));
-        notes.push(`The terminal now uses ${vscodeAccount.label}.`);
-      }
+      // VS Code takes the account the terminal uses: both keep it, AgentPool keeps the two
+      // copies on one generation (see keepMirrored).
+      await this.freshFrom(globalSlot(), account);
       notes.push(...(await this.writer.swapIn(vscodeSlot(), account)));
+      notes.push("The terminal keeps it too; AgentPool keeps both in sync.");
       return { needsReload: false, notes };
     }
     this.scope.prepareFolder();
@@ -169,7 +184,6 @@ export class ClaudeProvider implements Provider {
     }
     return { needsReload: false, notes };
   }
-
 
   async login(cancel: { isCancellationRequested: boolean }) {
     const dir = path.join(poolHome(), `login-${Date.now()}`);
@@ -199,6 +213,12 @@ export class ClaudeProvider implements Provider {
 
   /** A usable access token for the account, wherever its login lives. */
   private async accessToken(account: AccountMeta): Promise<string> {
+    if ((await this.sharedAccount()) === account.id) {
+      const shared = await this.writer.keepMirrored([globalSlot(), vscodeSlot()], account.id);
+      if (shared) {
+        return shared.accessToken;
+      }
+    }
     const slots = this.scope.isActive() ? [vscodeSlot(), globalSlot()] : [globalSlot()];
     for (const slot of slots) {
       let owner = await this.index.owner(slot);
