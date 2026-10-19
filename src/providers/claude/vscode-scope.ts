@@ -4,11 +4,12 @@ import * as path from "path";
 import * as vscode from "vscode";
 import { LinkKind, linkShared, refreshCopy } from "../../core/fs-utils";
 import { setWindowConfigDir, vscodeSlotDir } from "./claude-paths";
+import { syncGroupMcp } from "./group-mcp";
 import { linkProjectHistory } from "./project-history";
 import { WindowGroup } from "./window-group";
 
 const ENV_NAME = "CLAUDE_CONFIG_DIR";
-/** Settings an isolated group's config starts with: onboarding state only, no MCP servers or history. */
+/** Settings an isolated group's config starts with: onboarding state only (MCP servers: see syncGroupMcp). */
 const ISOLATED_CONFIG_KEYS = ["hasCompletedOnboarding", "lastOnboardingVersion", "theme", "installMethod", "autoUpdates"];
 
 /**
@@ -148,6 +149,11 @@ export class VscodeScope {
         fs.copyFileSync(globalConfig, config);
       }
       fs.chmodSync(config, 0o600);
+    }
+    if (isolated && fs.existsSync(config)) {
+      // Your global MCP servers (those `claude.groupMcpServers` shares), every activation.
+      const folders = (vscode.workspace.workspaceFolders ?? []).filter((f) => f.uri.scheme === "file").map((f) => f.uri.fsPath);
+      syncGroupMcp(globalConfig, config, cfg.get<string[]>("claude.groupMcpServers") ?? ["*"], folders, this.log);
     }
   }
 

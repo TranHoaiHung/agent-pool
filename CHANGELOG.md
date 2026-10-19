@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.2 — 2026-10-19
+
+- Fix: MCP servers you added globally (`claude mcp add --scope user`) were missing in an account
+  group's windows. A group now gets them — synced each time its window starts, so servers added later
+  appear after a reload — plus the local-scope servers of its own workspace. Setting
+  `agentPool.claude.groupMcpServers` (default `["*"]`) picks them: a name, `*` for all, `!name` to
+  leave one out.
+
 ## 0.2.1 — 2026-10-19
 
 - Fix: a conversation started before its workspace joined an account group could not be continued

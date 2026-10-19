@@ -9,6 +9,7 @@ import { move, ordered, placeBefore } from "../src/core/priority";
 import { AccountMeta, AccountSecret, emptyPool, PoolData } from "../src/core/types";
 import { globalSlot, groupSlotDir, launchConfigDir, setWindowConfigDir, vscodeSlotDir } from "../src/providers/claude/claude-paths";
 import { linkProjectHistory, projectDirName } from "../src/providers/claude/project-history";
+import { mcpShared, syncGroupMcp } from "../src/providers/claude/group-mcp";
 
 function account(id: string, group?: string, provider: "claude" | "codex" = "claude"): AccountMeta {
   return { id, provider, label: id, identityKey: `${id}:org`, inRotation: true, addedAt: 0, group };
@@ -195,5 +196,34 @@ describe("a group's view of its workspace history", () => {
     expect(fs.readdirSync(path.join(slot, "projects"))).toEqual([name]); // no personal project
     linkProjectHistory(shared, slot, [ws], () => undefined); // idempotent
     expect(fs.readFileSync(path.join(shared, name, "new.jsonl"), "utf8")).toBe("in group");
+  });
+});
+
+describe("global MCP servers in a group", () => {
+  it("shares by rule: all, by name, with exclusions winning", () => {
+    expect(mcpShared("figma", ["*"])).toBe(true);
+    expect(mcpShared("memory", ["*", "!memory"])).toBe(false);
+    expect(mcpShared("figma", ["figma"])).toBe(true);
+    expect(mcpShared("blender", ["figma"])).toBe(false);
+    expect(mcpShared("figma", [])).toBe(false);
+  });
+
+  it("copies shared global and own-project servers, keeps the group's own, writes only on change", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ap-mcp-"));
+    const globalFile = path.join(root, "global.json");
+    const groupFile = path.join(root, "group.json");
+    fs.writeFileSync(globalFile, JSON.stringify({
+      mcpServers: { figma: { command: "figma" }, memory: { command: "mem" } },
+      projects: { "/src/acme-api": { mcpServers: { db: { command: "db" } } }, "/src/my-blog": { mcpServers: { blog: { command: "b" } } } },
+    }));
+    fs.writeFileSync(groupFile, JSON.stringify({ theme: "dark", mcpServers: { jira: { command: "jira" } } }));
+    syncGroupMcp(globalFile, groupFile, ["*", "!memory"], ["/src/acme-api"], () => undefined);
+    const out = JSON.parse(fs.readFileSync(groupFile, "utf8"));
+    expect(Object.keys(out.mcpServers).sort()).toEqual(["figma", "jira"]);
+    expect(Object.keys(out.projects)).toEqual(["/src/acme-api"]); // never another project's servers
+    expect(out.theme).toBe("dark");
+    const mtime = fs.statSync(groupFile).mtimeMs;
+    syncGroupMcp(globalFile, groupFile, ["*", "!memory"], ["/src/acme-api"], () => undefined);
+    expect(fs.statSync(groupFile).mtimeMs).toBe(mtime);
   });
 });

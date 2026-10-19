@@ -90,6 +90,7 @@ files (the session transcript, `git status`); nothing is sent anywhere.
 | `agentPool.claude.handoff.newConversation` | off | newConversation mode only: `ask` (button) or `auto`. |
 | `agentPool.claude.switchTerminalToo` | off | Switch the terminal's `claude` too (see below). |
 | `agentPool.claude.groupSharedItems` | agents, commands, skills | What an account group's slot shares from `~/.claude` (see [Account groups](#account-groups-company-and-personal-projects-side-by-side)). |
+| `agentPool.claude.groupMcpServers` | `["*"]` | Which global MCP servers an account group gets: `*` all, a name, `!name` to leave one out. |
 
 To remove an account: 🗑 on its row in the AgentPool view or in the quick view, or `AgentPool: Remove account`.
 
@@ -157,8 +158,10 @@ places would sign one of them out).
 
 A group other than Default is **isolated**: its folder links only `agentPool.claude.groupSharedItems`
 from `~/.claude` (default: `agents`, `commands`, `skills`). Your global `CLAUDE.md`, `settings.json`
-and its hooks, memory, MCP servers and the history of your other projects are not there, so a company
-session never receives your personal instructions or history. The workspace's own conversations are
+and its hooks, memory and the history of your other projects are not there, so a company session
+never receives your personal instructions or history. Your global MCP servers do come along (synced
+each time the window starts; setting `agentPool.claude.groupMcpServers`, default `["*"]`) — leave one
+out with `!name`, e.g. `["*", "!memory-server"]` for a server that can read your personal history. The workspace's own conversations are
 linked in, so you can continue a conversation started before the project joined the group. Want instructions for company work? Put a `CLAUDE.md`
 in `~/.agent-pool/claude-group-<id>/`. Agent, command and skill descriptions are sent to Claude in every
 session — set the setting to `[]` to share nothing.

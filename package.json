@@ -2,7 +2,7 @@
   "name": "agent-pool",
   "displayName": "AgentPool — AI Account Switcher",
   "description": "Switch Claude Code & Codex accounts in one click, see every account's quota on hover, and auto-switch before you hit a limit.",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "publisher": "tranhoaihung",
   "license": "MIT",
   "repository": {
@@ -432,6 +432,16 @@
             "skills"
           ],
           "markdownDescription": "Items of `~/.claude` linked into an **account group's** slot (groups other than the default one). Everything else — `CLAUDE.md`, `settings.json` (hooks), project history, memory, MCP servers — stays separate per group, so a company group never receives your personal instructions or history. Note: agent, command and skill descriptions are sent to Claude in every session."
+        },
+        "agentPool.claude.groupMcpServers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "*"
+          ],
+          "markdownDescription": "MCP servers an **account group** (other than the default one) gets from your global Claude Code config (`~/.claude.json`, user scope), synced each time its window starts. `*` = all, a name = that server, `!name` = leave it out — e.g. `[\"*\", \"!memory-server\"]` keeps a server that can read your personal history out of company sessions. `[]` = none. The workspace's own local-scope servers always come along."
         },
         "agentPool.claude.applyToIntegratedTerminal": {
           "type": "boolean",
