@@ -4,6 +4,7 @@ import * as path from "path";
 import * as vscode from "vscode";
 import { LinkKind, linkShared, refreshCopy } from "../../core/fs-utils";
 import { setWindowConfigDir, vscodeSlotDir } from "./claude-paths";
+import { linkProjectHistory } from "./project-history";
 import { WindowGroup } from "./window-group";
 
 const ENV_NAME = "CLAUDE_CONFIG_DIR";
@@ -132,6 +133,11 @@ export class VscodeScope {
       }
     }
     fs.writeFileSync(ledgerFile, JSON.stringify(ledger, null, 2));
+    if (isolated) {
+      // The workspace's own conversations (and only those), so they can be continued here.
+      const folders = (vscode.workspace.workspaceFolders ?? []).filter((f) => f.uri.scheme === "file").map((f) => f.uri.fsPath);
+      linkProjectHistory(path.join(home, "projects"), dir, folders, this.log);
+    }
     // Seed Claude Code's config (MCP servers, onboarding state) once; it diverges after.
     const config = path.join(dir, ".claude.json");
     const globalConfig = path.join(os.homedir(), ".claude.json");

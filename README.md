@@ -157,8 +157,9 @@ places would sign one of them out).
 
 A group other than Default is **isolated**: its folder links only `agentPool.claude.groupSharedItems`
 from `~/.claude` (default: `agents`, `commands`, `skills`). Your global `CLAUDE.md`, `settings.json`
-and its hooks, project history, memory and MCP servers are not there, so a company session never
-receives your personal instructions or history. Want instructions for company work? Put a `CLAUDE.md`
+and its hooks, memory, MCP servers and the history of your other projects are not there, so a company
+session never receives your personal instructions or history. The workspace's own conversations are
+linked in, so you can continue a conversation started before the project joined the group. Want instructions for company work? Put a `CLAUDE.md`
 in `~/.agent-pool/claude-group-<id>/`. Agent, command and skill descriptions are sent to Claude in every
 session — set the setting to `[]` to share nothing.
 

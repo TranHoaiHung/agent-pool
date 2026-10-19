@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.1 — 2026-10-19
+
+- Fix: a conversation started before its workspace joined an account group could not be continued
+  after the reload ("Couldn't load this conversation's saved history"). A group's login folder now
+  links the history of its own workspace folders — and only those — from `~/.claude/projects`, so
+  conversations carry over in both directions and history stays in one place.
+
 ## 0.2.0 — 2026-10-19
 
 - **Account groups**: run company and personal projects side by side. Assign each workspace to a group

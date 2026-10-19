@@ -8,6 +8,7 @@ import { PoolStore } from "../src/core/pool-store";
 import { move, ordered, placeBefore } from "../src/core/priority";
 import { AccountMeta, AccountSecret, emptyPool, PoolData } from "../src/core/types";
 import { globalSlot, groupSlotDir, launchConfigDir, setWindowConfigDir, vscodeSlotDir } from "../src/providers/claude/claude-paths";
+import { linkProjectHistory, projectDirName } from "../src/providers/claude/project-history";
 
 function account(id: string, group?: string, provider: "claude" | "codex" = "claude"): AccountMeta {
   return { id, provider, label: id, identityKey: `${id}:org`, inRotation: true, addedAt: 0, group };
@@ -163,5 +164,36 @@ describe("per-window CLAUDE_CONFIG_DIR", () => {
   it("keeps the default group on the original VS Code slot", () => {
     expect(groupSlotDir(DEFAULT_GROUP)).toBe(vscodeSlotDir());
     expect(path.basename(groupSlotDir("work"))).toBe("claude-group-work");
+  });
+});
+
+describe("a group's view of its workspace history", () => {
+  it("names project folders like Claude Code, long paths included", () => {
+    expect(projectDirName("/Users/dev/src/acme_kit-flutter")).toBe("-Users-dev-src-acme-kit-flutter");
+    const long = `/Users/dev/${"very-long-folder/".repeat(15)}app`;
+    const name = projectDirName(long);
+    expect(name.length).toBeGreaterThan(200);
+    expect(name.slice(0, 201)).toBe(`${long.replace(/[^a-zA-Z0-9]/g, "-").slice(0, 200)}-`);
+  });
+
+  it("links only the workspace's own history, moving what the group already wrote", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ap-hist-"));
+    const shared = path.join(root, "claude", "projects");
+    const slot = path.join(root, "slot");
+    const ws = "/Users/dev/src/acme-api";
+    const name = projectDirName(ws);
+    fs.mkdirSync(path.join(shared, name), { recursive: true });
+    fs.writeFileSync(path.join(shared, name, "old.jsonl"), "before");
+    fs.mkdirSync(path.join(shared, "-Users-dev-src-my-blog"), { recursive: true });
+    fs.mkdirSync(path.join(slot, "projects", name), { recursive: true });
+    fs.writeFileSync(path.join(slot, "projects", name, "new.jsonl"), "in group");
+
+    linkProjectHistory(shared, slot, [ws], () => undefined);
+
+    expect(fs.lstatSync(path.join(slot, "projects", name)).isSymbolicLink() || process.platform === "win32").toBe(true);
+    expect(fs.readdirSync(path.join(slot, "projects", name)).sort()).toEqual(["new.jsonl", "old.jsonl"]);
+    expect(fs.readdirSync(path.join(slot, "projects"))).toEqual([name]); // no personal project
+    linkProjectHistory(shared, slot, [ws], () => undefined); // idempotent
+    expect(fs.readFileSync(path.join(shared, name, "new.jsonl"), "utf8")).toBe("in group");
   });
 });
