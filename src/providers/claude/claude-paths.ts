@@ -2,6 +2,7 @@ import * as crypto from "crypto";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
+import { groupSlotName } from "../../core/groups";
 import { poolHome } from "../../core/pool-store";
 import { extensionDirs, onPath } from "../cli-locator";
 
@@ -42,8 +43,29 @@ export function serviceForDir(dir: string): string {
   return `${LIVE_SERVICE}-${dirHash(dir)}`;
 }
 
+let launchDir: { value: string | undefined } | undefined;
+
+/** The CLAUDE_CONFIG_DIR VS Code was started with (AgentPool may set its own for this window). */
+export function launchConfigDir(): string | undefined {
+  return launchDir ? launchDir.value : process.env.CLAUDE_CONFIG_DIR;
+}
+
+/**
+ * Sets CLAUDE_CONFIG_DIR for this window's extension host, which Claude Code passes on to the
+ * sessions it starts (account groups: one slot per window). Undefined restores the original.
+ */
+export function setWindowConfigDir(dir: string | undefined): void {
+  launchDir ??= { value: process.env.CLAUDE_CONFIG_DIR };
+  const value = dir ?? launchDir.value;
+  if (value === undefined) {
+    delete process.env.CLAUDE_CONFIG_DIR;
+  } else {
+    process.env.CLAUDE_CONFIG_DIR = value;
+  }
+}
+
 export function globalSlot(): ClaudeSlot {
-  const configDir = process.env.CLAUDE_CONFIG_DIR;
+  const configDir = launchConfigDir();
   if (configDir && path.isAbsolute(configDir)) {
     // VS Code itself was started with CLAUDE_CONFIG_DIR: that is the "global" login here.
     return { name: "global", dir: configDir, service: serviceForDir(configDir), configFile: path.join(configDir, ".claude.json") };
@@ -58,6 +80,11 @@ export function globalSlot(): ClaudeSlot {
 
 export function vscodeSlotDir(): string {
   return path.join(poolHome(), "claude-vscode");
+}
+
+/** A group's VS Code slot folder (the default group's is the original VS Code slot). */
+export function groupSlotDir(group: string): string {
+  return path.join(poolHome(), groupSlotName(group));
 }
 
 export function vscodeSlot(): ClaudeSlot {

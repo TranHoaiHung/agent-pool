@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import * as vscode from "vscode";
-import { vscodeSlotDir } from "../providers/claude/claude-paths";
+import { launchConfigDir, vscodeSlotDir } from "../providers/claude/claude-paths";
 import {
   clearCompacted,
   clearRequest,
@@ -199,7 +199,7 @@ export class HandoffController {
 
   /** ~/.claude/settings.json, plus the VS Code slot's own copy when it is not a link to it. */
   private settingsFiles(): string[] {
-    const global = path.join(process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), ".claude"), "settings.json");
+    const global = path.join(launchConfigDir() || path.join(os.homedir(), ".claude"), "settings.json");
     const slot = path.join(vscodeSlotDir(), "settings.json");
     const files = [global];
     try {

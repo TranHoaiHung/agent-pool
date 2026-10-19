@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 import { poolHome } from "../../core/pool-store";
+import { DEFAULT_GROUP, groupOf, groupName } from "../../core/groups";
 import { AccountMeta, UsageSnapshot } from "../../core/types";
 import { cliTerminal } from "../cli-locator";
 import { HttpError } from "../http";
@@ -9,7 +10,7 @@ import { Place, Provider, ProviderContext, SwitchOutcome, waitFor } from "../pro
 import { fetchClaudeIdentity, fetchClaudeUsage, isExpiring } from "./claude-api";
 import { clearLive, readLive } from "./claude-credential-store";
 import { ClaudeLiveIndex, UnresolvedLoginError } from "./claude-live-index";
-import { ClaudeSlot, findClaudeBinary, globalSlot, slotForDir, vscodeSlot } from "./claude-paths";
+import { ClaudeSlot, findClaudeBinary, globalSlot, groupSlotDir, slotForDir } from "./claude-paths";
 import { ClaudeSlotWriter } from "./claude-slot-writer";
 import { VscodeScope } from "./vscode-scope";
 
@@ -35,13 +36,33 @@ export class ClaudeProvider implements Provider {
     this.index.invalidate();
   }
 
+  /** With account groups every window keeps its own slot: switches never move the terminal. */
   terminalToo(): boolean {
+    if (this.scope.win?.on()) {
+      return false;
+    }
     return vscode.workspace.getConfiguration("agentPool").get<boolean>("claude.switchTerminalToo") ?? false;
+  }
+
+  /** This window's VS Code slot (its account group's, with groups). */
+  private slot(): ClaudeSlot {
+    return slotForDir("vscode", this.scope.slotDir());
   }
 
   /** The slot Claude Code inside VS Code reads. */
   vscodeTarget(): ClaudeSlot {
-    return this.scope.isActive() ? vscodeSlot() : globalSlot();
+    return this.scope.isActive() ? this.slot() : globalSlot();
+  }
+
+  /** Every group's slot, `first`'s first. */
+  private groupSlots(first: string): ClaudeSlot[] {
+    const ids = [first, DEFAULT_GROUP, ...(this.ctx.pool.get().groups ?? []).map((g) => g.id)];
+    return [...new Set(ids)].map((g) => slotForDir("vscode", groupSlotDir(g)));
+  }
+
+  /** The account a group's slot holds (any group, read from any window). */
+  async groupOwner(group: string): Promise<string | undefined> {
+    return (await this.index.owner(slotForDir("vscode", groupSlotDir(group)), true)).accountId;
   }
 
   async activeAccountId(): Promise<string | undefined> {
@@ -56,7 +77,8 @@ export class ClaudeProvider implements Provider {
     if (!this.scope.isActive()) {
       return [await describe("VS Code + Terminal", globalSlot())];
     }
-    return [await describe("VS Code", vscodeSlot()), await describe("Terminal", globalSlot())];
+    const label = this.scope.win?.on() ? `VS Code (${groupName(this.ctx.pool.get(), this.scope.win.id)})` : "VS Code";
+    return [await describe(label, this.slot()), await describe("Terminal", globalSlot())];
   }
 
   async captureCurrent() {
@@ -107,7 +129,7 @@ export class ClaudeProvider implements Provider {
     if (!this.scope.isActive()) {
       return undefined;
     }
-    const [terminal, vscodeOwner] = [await this.index.owner(globalSlot()), await this.index.owner(vscodeSlot())];
+    const [terminal, vscodeOwner] = [await this.index.owner(globalSlot()), await this.index.owner(this.slot())];
     return terminal.accountId && terminal.accountId === vscodeOwner.accountId ? terminal.accountId : undefined;
   }
 
@@ -115,7 +137,7 @@ export class ClaudeProvider implements Provider {
   async maintain(): Promise<void> {
     const shared = await this.sharedAccount();
     if (shared) {
-      await this.writer.keepMirrored([globalSlot(), vscodeSlot()], shared);
+      await this.writer.keepMirrored([globalSlot(), this.slot()], shared);
     }
   }
 
@@ -136,7 +158,7 @@ export class ClaudeProvider implements Provider {
    */
   async setTerminalAccount(account: AccountMeta): Promise<string[]> {
     if (this.scope.isActive()) {
-      await this.freshFrom(vscodeSlot(), account);
+      await this.freshFrom(this.slot(), account);
     }
     return this.writer.swapIn(globalSlot(), account);
   }
@@ -149,7 +171,7 @@ export class ClaudeProvider implements Provider {
     if (this.terminalToo() && !this.terminalPin()) {
       let needsReload = false;
       if (scopeActive) {
-        await this.writer.retire(vscodeSlot());
+        await this.writer.retire(this.slot());
         await this.scope.deactivate();
         needsReload = true;
         notes.push("Claude Code in VS Code now follows the global login again. Reload every open VS Code window.");
@@ -171,12 +193,12 @@ export class ClaudeProvider implements Provider {
       // VS Code takes the account the terminal uses: both keep it, AgentPool keeps the two
       // copies on one generation (see keepMirrored).
       await this.freshFrom(globalSlot(), account);
-      notes.push(...(await this.writer.swapIn(vscodeSlot(), account)));
+      notes.push(...(await this.writer.swapIn(this.slot(), account)));
       notes.push("The terminal keeps it too; AgentPool keeps both in sync.");
       return { needsReload: false, notes };
     }
     this.scope.prepareFolder();
-    notes.push(...(await this.writer.swapIn(vscodeSlot(), account)));
+    notes.push(...(await this.writer.swapIn(this.slot(), account)));
     if (!scopeActive) {
       await this.scope.activate();
       notes.push("One-time setup: Claude Code in VS Code now has its own login slot (the terminal keeps its account). Reload this window once — from now on switches need no reload.");
@@ -214,12 +236,16 @@ export class ClaudeProvider implements Provider {
   /** A usable access token for the account, wherever its login lives. */
   private async accessToken(account: AccountMeta): Promise<string> {
     if ((await this.sharedAccount()) === account.id) {
-      const shared = await this.writer.keepMirrored([globalSlot(), vscodeSlot()], account.id);
+      const shared = await this.writer.keepMirrored([globalSlot(), this.slot()], account.id);
       if (shared) {
         return shared.accessToken;
       }
     }
-    const slots = this.scope.isActive() ? [vscodeSlot(), globalSlot()] : [globalSlot()];
+    // With groups, every group's slot (a login may be live in another group's slot, e.g. after
+    // a /login there): never refresh a vault copy that any slot still holds.
+    const slots = this.scope.win?.on()
+      ? [...this.groupSlots(groupOf(account)), globalSlot()]
+      : this.scope.isActive() ? [this.slot(), globalSlot()] : [globalSlot()];
     for (const slot of slots) {
       let owner = await this.index.owner(slot);
       if (owner.unresolved && owner.oauth && isExpiring(owner.oauth)) {

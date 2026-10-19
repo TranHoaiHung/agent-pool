@@ -12,12 +12,18 @@ const BEAT_MS = 10_000;
  * so several open windows neither multiply rate-limited usage calls nor switch twice.
  */
 export class LeaderLock {
-  private readonly file = path.join(poolHome(), "leader.json");
+  private readonly file: string;
   private readonly id = `${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
   private timer?: NodeJS.Timeout;
   private leader = false;
 
-  constructor(private readonly onChange: (isLeader: boolean) => void) {}
+  /** `name`: one election per file (the default one, or an account group's). */
+  constructor(
+    private readonly onChange: (isLeader: boolean) => void,
+    name = "leader.json"
+  ) {
+    this.file = path.join(poolHome(), name);
+  }
 
   start(): void {
     void this.tick();

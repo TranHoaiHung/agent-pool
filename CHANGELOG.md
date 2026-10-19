@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.2.0 — 2026-10-19
+
+- **Account groups**: run company and personal projects side by side. Assign each workspace to a group
+  (*AgentPool: Account group for this workspace…*) — e.g. *Company* for projects A, B, C, the default
+  group for the rest — and every VS Code window runs Claude Code on its own group's account at the
+  same time. Each group has its own login slot, priority order and auto switch (never crossing into
+  another group), and a group's window shows only its own Claude accounts.
+- Groups other than the default one are **isolated**: they share only `agents`, `commands` and `skills`
+  from `~/.claude` (setting `agentPool.claude.groupSharedItems`) — no global `CLAUDE.md`, hooks,
+  project history, memory or MCP servers — so personal instructions and history never reach a
+  company session. `claude` in a group window's integrated terminal uses the group's account.
+- Pick a group's accounts with ticks right after choosing the group, or later with *Choose accounts of a
+  group…* (right-click **Claude Code**); select several accounts (Cmd/Ctrl-click) → *Move to account
+  group…*. A login signed in from a group's window joins that group.
+- The view's first row shows the workspace's group: click it to change the group, ☑ to pick the
+  group's accounts. While a window must reload it turns into **Reload window to use …** (one click),
+  a reload button appears in the view's title bar, and clicking the status bar item reloads too.
+- Without groups nothing changes.
+
 ## 0.1.16 — 2026-10-19
 
 - **VS Code can use the terminal's account too.** Picking the account the terminal uses no longer

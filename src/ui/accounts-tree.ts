@@ -1,13 +1,18 @@
+import * as path from "path";
 import * as vscode from "vscode";
 import { AccountService } from "../account-service";
-import { ordered, placeBefore } from "../core/priority";
+import { groupName, groupsOn } from "../core/groups";
+import { placeBefore } from "../core/priority";
 import { AccountMeta, PROVIDER_LABEL, PROVIDERS, ProviderId } from "../core/types";
 import { prioritySaved } from "./commands";
 import { compactUsage } from "./format";
 
 const MIME = "application/vnd.code.tree.agentpool.accounts";
 
-export type Node = { kind: "provider"; provider: ProviderId } | { kind: "account"; account: AccountMeta; rank: number };
+export type Node =
+  | { kind: "workspace" }
+  | { kind: "provider"; provider: ProviderId }
+  | { kind: "account"; account: AccountMeta; rank: number };
 
 /** Accounts grouped by tool, in priority order; drag and drop reorders them. */
 export class AccountsTree implements vscode.TreeDataProvider<Node>, vscode.TreeDragAndDropController<Node> {
@@ -16,7 +21,11 @@ export class AccountsTree implements vscode.TreeDataProvider<Node>, vscode.TreeD
   private readonly changed = new vscode.EventEmitter<Node | undefined>();
   readonly onDidChangeTreeData = this.changed.event;
 
-  constructor(private readonly service: AccountService) {}
+  /** `workspaceKey`: this window's workspace (the group row is shown only with one open). */
+  constructor(
+    private readonly service: AccountService,
+    private readonly workspaceKey?: string
+  ) {}
 
   refresh(): void {
     this.changed.fire(undefined);
@@ -25,24 +34,35 @@ export class AccountsTree implements vscode.TreeDataProvider<Node>, vscode.TreeD
   getChildren(node?: Node): Node[] {
     const data = this.service.pool.get();
     if (!node) {
-      return PROVIDERS.filter((p) => data.accounts.some((a) => a.provider === p)).map((provider) => ({ kind: "provider", provider }));
+      // With groups, the Claude node stays even when the group has no account yet.
+      const providers: Node[] = PROVIDERS.filter((p) => this.service.ordered(p).length > 0 || (p === "claude" && groupsOn(data))).map((provider) => ({ kind: "provider", provider }));
+      return this.workspaceKey && data.accounts.some((a) => a.provider === "claude") ? [{ kind: "workspace" }, ...providers] : providers;
     }
     if (node.kind === "provider") {
-      return ordered(data, node.provider).map((account, i) => ({ kind: "account", account, rank: i + 1 }));
+      return this.service.ordered(node.provider).map((account, i) => ({ kind: "account", account, rank: i + 1 }));
     }
     return [];
   }
 
   getTreeItem(node: Node): vscode.TreeItem {
     const cfg = vscode.workspace.getConfiguration("agentPool");
+    if (node.kind === "workspace") {
+      return this.workspaceItem();
+    }
     if (node.kind === "provider") {
       const item = new vscode.TreeItem(PROVIDER_LABEL[node.provider], vscode.TreeItemCollapsibleState.Expanded);
       const auto = cfg.get<boolean>("autoSwitch.enabled", true) ? "auto switch on" : "auto switch off";
-      const scope = node.provider === "claude"
-        ? cfg.get<boolean>("claude.switchTerminalToo") ? " · VS Code + terminal" : " · VS Code only"
-        : "";
+      const data = this.service.pool.get();
+      const scope = node.provider !== "claude"
+        ? ""
+        : groupsOn(data)
+          ? ` · group ${groupName(data, this.service.group)}`
+          : cfg.get<boolean>("claude.switchTerminalToo") ? " · VS Code + terminal" : " · VS Code only";
       item.description = `${auto}${scope}`;
-      item.contextValue = "provider";
+      if (node.provider === "claude" && groupsOn(data) && this.service.ordered("claude").length === 0) {
+        item.tooltip = "No account in this group yet: add one (+), or move one here from another group's window.";
+      }
+      item.contextValue = node.provider === "claude" ? "provider-claude" : "provider";
       return item;
     }
     const { account, rank } = node;
@@ -70,6 +90,31 @@ export class AccountsTree implements vscode.TreeDataProvider<Node>, vscode.TreeD
     return item;
   }
 
+  /**
+   * First row: which account group this workspace uses (click to change, ☑ to pick the group's
+   * accounts), or — when Claude Code here still runs another setup — a one-click reload.
+   */
+  private workspaceItem(): vscode.TreeItem {
+    const data = this.service.pool.get();
+    const wanted = this.service.wantedGroup?.() ?? this.service.group;
+    if (this.service.pendingReload("claude")) {
+      const label = wanted !== this.service.group ? `Reload window to use ${groupName(data, wanted)}` : "Reload window";
+      const item = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.None);
+      item.iconPath = new vscode.ThemeIcon("debug-restart", new vscode.ThemeColor("problemsWarningIcon.foreground"));
+      item.tooltip = "Claude Code in this window still runs the previous account. Click to reload the window.";
+      item.command = { command: "workbench.action.reloadWindow", title: "Reload Window" };
+      item.contextValue = "workspace-reload";
+      return item;
+    }
+    const item = new vscode.TreeItem(`Account group: ${groupName(data, this.service.group)}`, vscode.TreeItemCollapsibleState.None);
+    item.description = path.basename(this.workspaceKey ?? "");
+    item.iconPath = new vscode.ThemeIcon("organization");
+    item.tooltip = "Which Claude Code accounts this workspace uses. Click to change the group; ☑ picks the group's accounts.";
+    item.command = { command: "agentPool.setWorkspaceGroup", title: "Account group for this workspace" };
+    item.contextValue = "workspace";
+    return item;
+  }
+
   handleDrag(source: readonly Node[], transfer: vscode.DataTransfer): void {
     const ids = source.filter((n) => n.kind === "account").map((n) => (n as { account: AccountMeta }).account.id);
     transfer.set(MIME, new vscode.DataTransferItem(ids));
@@ -87,9 +132,9 @@ export class AccountsTree implements vscode.TreeDataProvider<Node>, vscode.TreeD
           continue;
         }
         if (target?.kind === "account" && target.account.provider === account.provider) {
-          placeBefore(data, id, target.account.id); // dropped on an account: take its place
+          placeBefore(data, id, target.account.id, this.service.group); // dropped on an account: take its place
         } else if (!target || (target.kind === "provider" && target.provider === account.provider)) {
-          placeBefore(data, id, ordered(data, account.provider)[0]?.id); // dropped on the group: first
+          placeBefore(data, id, this.service.ordered(account.provider)[0]?.id, this.service.group); // dropped on the provider: first
         }
       }
     });

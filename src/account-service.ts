@@ -1,5 +1,6 @@
+import { DEFAULT_GROUP, groupName, groupOf, inGroup, laneKey, newGroupId } from "./core/groups";
 import { PoolStore } from "./core/pool-store";
-import { move } from "./core/priority";
+import { move, ordered } from "./core/priority";
 import { newAccountId, SecretVault } from "./core/secret-vault";
 import { AccountMeta, AccountSecret, Identity, PROVIDERS, ProviderId } from "./core/types";
 import { Provider, ProviderContext, SwitchOutcome } from "./providers/provider";
@@ -23,6 +24,10 @@ export class AccountService {
   settings?: { autoSaveLogins(): boolean };
   /** When this window's extension host started (a reload restarts it). */
   private readonly startedAt = Date.now();
+  /** This window's Claude account group: the only Claude accounts it shows, uses and switches. */
+  group = DEFAULT_GROUP;
+  /** The group this window's workspace is assigned to now (differs from `group` until a reload). */
+  wantedGroup?: () => string;
 
   constructor(
     readonly pool: PoolStore,
@@ -36,7 +41,7 @@ export class AccountService {
       pool: this.pool,
       vault: this.vault,
       log: this.log,
-      enroll: (provider, secret, identity) => this.enroll(provider, secret, identity),
+      enroll: (provider, secret, identity, group) => this.enroll(provider, secret, identity, group),
     };
   }
 
@@ -62,7 +67,7 @@ export class AccountService {
     if (exact) {
       return exact(); // the provider knows precisely whether this window runs a stale setup
     }
-    const last = this.pool.get().lastSwitch[provider];
+    const last = this.pool.get().lastSwitch[this.lane(provider)];
     return (last?.reloadAt ?? 0) > this.startedAt;
   }
 
@@ -87,6 +92,21 @@ export class AccountService {
 
   account(id: string): AccountMeta | undefined {
     return this.pool.get().accounts.find((a) => a.id === id);
+  }
+
+  /** A provider's accounts this window sees, in priority order. */
+  ordered(provider: ProviderId): AccountMeta[] {
+    return ordered(this.pool.get(), provider, this.group);
+  }
+
+  /** Every account this window sees (Claude: its group's; Codex: all). */
+  accounts(): AccountMeta[] {
+    return this.pool.get().accounts.filter((a) => inGroup(a, this.group));
+  }
+
+  /** Key of this window's per-group pool state for a provider. */
+  lane(provider: ProviderId): string {
+    return laneKey(provider, this.group);
   }
 
   /** Re-reads which account each tool uses. */
@@ -145,7 +165,7 @@ export class AccountService {
   }
 
   /** Saves a login, or updates the saved one with the same identity. */
-  async enroll(provider: ProviderId, secret: AccountSecret, identity: Identity): Promise<AccountMeta> {
+  async enroll(provider: ProviderId, secret: AccountSecret, identity: Identity, group = this.group): Promise<AccountMeta> {
     let meta: AccountMeta | undefined;
     await this.pool.mutate((data) => {
       meta = data.accounts.find((a) => a.provider === provider && a.identityKey === identity.identityKey);
@@ -169,6 +189,8 @@ export class AccountService {
         inRotation: true,
         addedAt: Date.now(),
         extra: identity.raw,
+        // A new Claude login joins the group of the window it was signed in from.
+        group: provider === "claude" && group !== DEFAULT_GROUP ? group : undefined,
       };
       data.accounts.push(meta);
       data.order[provider] = [...data.order[provider], meta.id];
@@ -207,10 +229,11 @@ export class AccountService {
     this.switching.add(account.provider);
     try {
       const fromId = this.active.get(account.provider);
-      const previous = this.pool.get().lastSwitch[account.provider];
+      const lane = this.lane(account.provider);
+      const previous = this.pool.get().lastSwitch[lane];
       const outcome = await this.providers.get(account.provider)!.switchTo(account);
       await this.pool.mutate((data) => {
-        data.lastSwitch[account.provider] = {
+        data.lastSwitch[lane] = {
           at: Date.now(),
           fromId,
           toId: id,
@@ -219,7 +242,7 @@ export class AccountService {
           // Sticky: a later switch that needs no reload does not undo an earlier one's need.
           reloadAt: outcome.needsReload ? Date.now() : previous?.reloadAt,
         };
-        delete data.noticeKeys[account.provider]; // a later exhaustion is news again
+        delete data.noticeKeys[lane]; // a later exhaustion is news again
       });
       this.log(`[${account.provider}] ${automatic ? "auto-" : ""}switched ${fromId ?? "?"} → ${id}. ${outcome.notes.join(" ")}`);
       await this.refreshActive();
@@ -282,7 +305,60 @@ export class AccountService {
   }
 
   async move(id: string, delta: number): Promise<void> {
-    await this.pool.mutate((data) => move(data, id, delta));
+    await this.pool.mutate((data) => move(data, id, delta, this.group));
+  }
+
+  /** Creates a Claude account group; returns its id. */
+  async createGroup(name: string): Promise<string> {
+    let id = "";
+    await this.pool.mutate((data) => {
+      id = newGroupId(name, data);
+      data.groups = [...(data.groups ?? []), { id, name }];
+    });
+    return id;
+  }
+
+  /** Assigns a workspace to a group (the default group removes the assignment). */
+  async setWorkspaceGroup(workspaceKey: string, group: string): Promise<void> {
+    await this.pool.mutate((data) => {
+      const map = { ...(data.workspaceGroups ?? {}) };
+      if (group === DEFAULT_GROUP) {
+        delete map[workspaceKey];
+      } else {
+        map[workspaceKey] = group;
+      }
+      data.workspaceGroups = map;
+    });
+  }
+
+  /**
+   * Moves a Claude account to another group. Refused while its current group's slot holds it:
+   * one login live in two groups' slots would spend each other's single-use refresh tokens.
+   */
+  async moveToGroup(id: string, group: string): Promise<void> {
+    const account = this.account(id);
+    if (!account || account.provider !== "claude") {
+      throw new Error("Only Claude Code accounts belong to groups.");
+    }
+    const from = groupOf(account);
+    if (from === group) {
+      return;
+    }
+    const provider = this.providers.get("claude") as (Provider & { groupOwner?(g: string): Promise<string | undefined> }) | undefined;
+    const groups = [DEFAULT_GROUP, ...(this.pool.get().groups ?? []).map((g) => g.id)];
+    for (const g of groups.filter((x) => x !== group)) {
+      if ((await provider?.groupOwner?.(g)) === id) {
+        throw new Error(
+          `"${account.label}" is in use by the ${groupName(this.pool.get(), g)} group. Switch that group to another account first (in one of its windows).`
+        );
+      }
+    }
+    await this.pool.mutate((data) => {
+      const meta = data.accounts.find((a) => a.id === id);
+      if (meta) {
+        meta.group = group === DEFAULT_GROUP ? undefined : group;
+      }
+    });
   }
 }
 

@@ -1,7 +1,6 @@
 import * as vscode from "vscode";
 import { AccountService } from "./account-service";
 import { decide, effectivePercent, WEEKLY_THRESHOLD } from "./core/auto-switch-engine";
-import { ordered } from "./core/priority";
 import { AccountMeta, PROVIDER_LABEL, ProviderId, UsageRecord } from "./core/types";
 import { HandoffController } from "./handoff/handoff-controller";
 import { HttpError } from "./providers/http";
@@ -43,12 +42,14 @@ export class UsagePoller {
   onReloadNeeded?: (provider: ProviderId) => void;
   private busy = false;
   private readonly inFlight = new Set<string>();
+  private fillTriedAt = 0;
 
   constructor(
     private readonly service: AccountService,
     private readonly onSwitched: (provider: ProviderId, outcomeNeedsReload: boolean, message: string) => void,
     private readonly notify: (message: string) => void,
-    private readonly isLeader: () => boolean,
+    /** Whether this window leads auto switch for a provider (Claude: for its account group). */
+    private readonly manages: (provider: ProviderId) => boolean,
     private readonly handoff?: HandoffController
   ) {}
 
@@ -67,7 +68,7 @@ export class UsagePoller {
   /** Reads every account now (manual refresh), ignoring intervals but not rate-limit holds. */
   async refreshAll(): Promise<void> {
     await this.service.refreshActive();
-    const accounts = this.service.pool.get().accounts;
+    const accounts = this.service.accounts().filter((a) => this.manages(a.provider));
     await Promise.all(accounts.map((a) => this.read(a, true)));
   }
 
@@ -78,10 +79,10 @@ export class UsagePoller {
     this.busy = true;
     try {
       await this.service.refreshActive();
-      for (const account of this.service.pool.get().accounts) {
+      for (const account of this.service.accounts().filter((a) => this.manages(a.provider))) {
         await this.read(account, false);
       }
-      for (const provider of ["claude", "codex"] as ProviderId[]) {
+      for (const provider of (["claude", "codex"] as ProviderId[]).filter(this.manages)) {
         await this.service.providers.get(provider)?.maintain?.().catch((e: Error) => this.service.log(`[${provider}] upkeep: ${e.message}`));
         await this.autoSwitch(provider);
       }
@@ -157,13 +158,13 @@ export class UsagePoller {
    * after a compaction near the limit). Leader only; respects pending reloads.
    */
   async switchNow(provider: ProviderId, why: string): Promise<void> {
-    if (!this.isLeader() || this.service.pendingReload(provider)) {
+    if (!this.manages(provider) || this.service.pendingReload(provider)) {
       return;
     }
     const data = this.service.pool.get();
     const activeId = this.service.activeId(provider);
     const held = this.service.heldElsewhere(provider);
-    const next = ordered(data, provider).find((a) => {
+    const next = this.service.ordered(provider).find((a) => {
       const u = effective(data.usage[a.id]);
       return a.id !== activeId && a.id !== held && a.inRotation && !a.needsReauth && u !== undefined && u < threshold();
     });
@@ -182,6 +183,10 @@ export class UsagePoller {
 
   private async autoSwitch(provider: ProviderId): Promise<void> {
     const cfg = vscode.workspace.getConfiguration("agentPool");
+    if (provider === "claude" && !this.service.activeId(provider) && (this.service.pool.get().groups ?? []).length > 0) {
+      await this.fillEmptySlot(this.service.ordered(provider));
+      return;
+    }
     if (!cfg.get<boolean>("autoSwitch.enabled", true)) {
       return;
     }
@@ -189,10 +194,12 @@ export class UsagePoller {
     const data = this.service.pool.get();
     // The terminal's account (VS Code only mode) is not a candidate: it cannot be live twice.
     const held = this.service.heldElsewhere(provider);
-    const accounts = ordered(data, provider).filter((a) => a.id !== held || a.id === this.service.activeId(provider));
+    const accounts = this.service.ordered(provider).filter((a) => a.id !== held || a.id === this.service.activeId(provider));
     const active = accounts.find((a) => a.id === this.service.activeId(provider));
     const intervalMs = active ? this.interval(active) : 300_000;
-    const last = data.lastSwitch[provider];
+    const lane = this.service.lane(provider);
+    const last = data.lastSwitch[lane];
+
     if (provider === "claude" && active) {
       const usedNow = effective(data.usage[active.id]);
       // The account auto switch would go to: the first other one in priority order with room.
@@ -242,7 +249,7 @@ export class UsagePoller {
       this.service.log(`[claude] switch waits for the handoff (${decision.usedPercent}%)`);
       return;
     }
-    if (decision.action === "switch" && !this.isLeader()) {
+    if (decision.action === "switch" && !this.manages(provider)) {
       return; // leadership moved while reading usage
     }
     if (decision.action === "switch") {
@@ -260,14 +267,36 @@ export class UsagePoller {
       const when = decision.soonestReset ? new Date(decision.soonestReset).toLocaleTimeString() : "unknown";
       const text = `${active?.label ?? "The account in use"} is past its threshold (${threshold()}%, weekly limits ${longThreshold()}%) and no other account has clearly more room. Staying; soonest reset ${when}.`;
       this.service.autoNote.set(provider, text);
-      if (data.noticeKeys[provider] !== decision.noticeKey) {
+      if (data.noticeKeys[lane] !== decision.noticeKey) {
         await this.service.pool.mutate((d) => {
-          d.noticeKeys[provider] = decision.noticeKey;
+          d.noticeKeys[lane] = decision.noticeKey;
         });
         this.notify(`${PROVIDER_LABEL[provider]}: ${text}`);
       }
     } else {
       this.service.autoNote.delete(provider);
+    }
+  }
+
+  /**
+   * With account groups, a group's slot starts empty (and Claude Code in its windows has no
+   * login): it takes the group's first account in priority order, preferring one with room.
+   */
+  private async fillEmptySlot(accounts: AccountMeta[]): Promise<void> {
+    const data = this.service.pool.get();
+    const usable = accounts.filter((a) => a.inRotation && !a.needsReauth);
+    // The terminal's account first: taking it shares the login instead of adding another.
+    const terminal = usable.find((a) => a.id === this.service.terminalAccount("claude"));
+    const pick = terminal ?? usable.find((a) => (effective(data.usage[a.id]) ?? 0) < threshold()) ?? usable[0];
+    if (!pick || this.service.pendingReload("claude") || Date.now() - this.fillTriedAt < 10 * 60_000) {
+      return;
+    }
+    this.fillTriedAt = Date.now(); // a failing fill is retried every 10 minutes, not every tick
+    try {
+      const outcome = await this.service.switchTo(pick.id, true);
+      this.onSwitched("claude", outcome.needsReload, `${PROVIDER_LABEL.claude}: this group now uses ${pick.label}.`);
+    } catch (e) {
+      this.service.log(`[claude] could not fill the group's empty slot: ${(e as Error).message}`);
     }
   }
 }

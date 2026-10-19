@@ -1,6 +1,5 @@
 import * as vscode from "vscode";
 import { AccountService } from "../account-service";
-import { ordered } from "../core/priority";
 import { AccountMeta, maxUsed, PROVIDER_LABEL, PROVIDERS } from "../core/types";
 import { compactUsage, until } from "./format";
 
@@ -44,7 +43,7 @@ function items(service: AccountService): Item[] {
   const data = service.pool.get();
   const result: Item[] = [];
   for (const provider of PROVIDERS) {
-    const accounts = ordered(data, provider);
+    const accounts = service.ordered(provider);
     if (accounts.length === 0) {
       continue;
     }
@@ -74,5 +73,6 @@ function items(service: AccountService): Item[] {
   result.push({ label: "$(add) Add account", command: "agentPool.addAccount" });
   result.push({ label: "$(dashboard) Auto switch threshold…", command: "agentPool.setThreshold" });
   result.push({ label: "$(list-ordered) Reorder priority…", command: "agentPool.accounts.focus" });
+  result.push({ label: "$(organization) Account group for this workspace…", command: "agentPool.setWorkspaceGroup" });
   return result;
 }

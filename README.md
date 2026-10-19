@@ -23,6 +23,7 @@ Manage several **Claude Code** and **Codex** accounts in VS Code:
 - **Switch** with one click from the tooltip, the editor title icon, the AgentPool view, or `AgentPool: Switch account`.
 - **Priority order**: drag accounts in the AgentPool view (or use ↑/↓). Auto switch walks this order, e.g. B → A → C.
 - **Auto switch** before the account in use runs out (default 95%), and back to a higher-priority account once it has room again.
+- **Account groups**: company projects on company accounts, personal projects on personal ones — in parallel windows, with your personal setup kept out of company sessions. [How →](#account-groups-company-and-personal-projects-side-by-side)
 
 ## How it looks
 
@@ -88,6 +89,7 @@ files (the session transcript, `git status`); nothing is sent anywhere.
 | `agentPool.claude.handoff.mode` | compact | `compact` (same conversation, /compact before the switch) or `newConversation`. |
 | `agentPool.claude.handoff.newConversation` | off | newConversation mode only: `ask` (button) or `auto`. |
 | `agentPool.claude.switchTerminalToo` | off | Switch the terminal's `claude` too (see below). |
+| `agentPool.claude.groupSharedItems` | agents, commands, skills | What an account group's slot shares from `~/.claude` (see [Account groups](#account-groups-company-and-personal-projects-side-by-side)). |
 
 To remove an account: 🗑 on its row in the AgentPool view or in the quick view, or `AgentPool: Remove account`.
 
@@ -111,6 +113,67 @@ move the terminal, and VS Code can still use that same account — AgentPool kee
 login in sync.
 
 **Windows and Linux:** Claude Code keeps its login in `.credentials.json` instead of the Keychain; AgentPool switches that file the same way. On Windows, shared folders are linked as junctions (no admin rights or Developer Mode needed) and shared files as hard links or refreshed copies.
+
+## Account groups: company and personal projects side by side
+
+Working on company and personal projects at the same time? Put each workspace in an **account group**
+— say *Company* for projects A, B, C, while D and X stay in the default group — and every VS Code
+window runs Claude Code on its own group's account, side by side. Company work never runs on a
+personal account, and your personal setup never reaches a company session.
+
+<img src="docs/images/account-groups.png" alt="Two VS Code windows side by side: acme-api in the Company group with company accounts, my-blog in the Default group with personal accounts" width="100%">
+
+### Set it up (once per company project)
+
+<img src="docs/images/account-groups-setup.png" alt="Three steps: pick or create the group, tick its accounts, reload the window with one click" width="100%">
+
+1. Open the company project. In the AgentPool view, click the first row, **Account group: Default**
+   (or run `AgentPool: Account group for this workspace…`) → **New group…** → type `Company`.
+2. A list of your Claude Code accounts opens: **tick the company ones** → OK.
+3. Click **Reload Window** in the dialog — or, if you skipped it, the first row now reads
+   **⟳ Reload window to use Company**: one click. The status bar then shows `[Company] …`.
+
+For projects B and C: click the first row → pick **Company** → reload. Projects you never assign stay
+in **Default**. The first time groups are turned on, reload your other open VS Code windows once.
+
+### Everyday use
+
+| You want to | Do this |
+|---|---|
+| See which group a window uses | First row of the AgentPool view, or the status bar (`[Company] dev@acme 42%`). In a Claude session, `/status` shows the account. |
+| Move a project to another group | Click the first row → pick the group → reload (row, ⟳ in the view's title bar, or a click on the status bar). |
+| Change a group's accounts | ☑ at the end of the first row (or right-click **Claude Code** → *Choose accounts of a group…*): ticked accounts join, unticked ones go back to Default. |
+| Move several accounts at once | Cmd/Ctrl-click them → right-click → *Move to account group…*. |
+| Add a new company account | In a company window, **＋ Add account**: a login signed in from a group's window joins that group. |
+| Switch account inside a group | As usual — a window lists, switches and auto-switches only its own group's accounts. |
+
+Each group has its own login (`~/.agent-pool/claude-group-<id>`), its own priority order and its own
+auto switch, which never crosses into another group. `claude` in the integrated terminal of a group's
+window uses the group's account too; terminals outside VS Code keep the terminal's account. An account
+a group is using cannot be moved until that group switches to another one (one login live in two
+places would sign one of them out).
+
+### Privacy
+
+A group other than Default is **isolated**: its folder links only `agentPool.claude.groupSharedItems`
+from `~/.claude` (default: `agents`, `commands`, `skills`). Your global `CLAUDE.md`, `settings.json`
+and its hooks, project history, memory and MCP servers are not there, so a company session never
+receives your personal instructions or history. Want instructions for company work? Put a `CLAUDE.md`
+in `~/.agent-pool/claude-group-<id>/`. Agent, command and skill descriptions are sent to Claude in every
+session — set the setting to `[]` to share nothing.
+
+### Good to know
+
+- Claude Code's `claudeCode.environmentVariables` setting applies to every window, so with groups
+  AgentPool removes its `CLAUDE_CONFIG_DIR` there and sets it in each window's own extension host,
+  which Claude Code passes on to the sessions it starts. If Claude Code ever starts before AgentPool in
+  a group's window, AgentPool asks you to reload. After a Claude Code update, `/status` is a quick check.
+- A window keeps its group until it reloads: a running session never changes account mid-way.
+- With groups, `agentPool.claude.switchTerminalToo` is ignored (each window keeps its own login).
+- Long-session help (`/compact` reminder, handoff) stays with Default: its hooks live in
+  `~/.claude/settings.json`.
+- Codex is not grouped: its quota is read and auto-switched by a Default window.
+- No VS Code profile is needed.
 
 ## Codex
 

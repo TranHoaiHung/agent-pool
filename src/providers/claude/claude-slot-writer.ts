@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import { replaceFile } from "../../core/fs-utils";
 import { refreshLocks, withLocks, writeLock } from "../../core/dir-lock";
+import { DEFAULT_GROUP } from "../../core/groups";
 import { AccountMeta, ClaudeOAuth, Identity } from "../../core/types";
 import { HttpError } from "../http";
 import { lockAccount, ProviderContext } from "../provider";
@@ -220,7 +221,8 @@ export class ClaudeSlotWriter {
         }
       }
     }
-    const meta = await this.ctx.enroll("claude", { kind: "claude", oauth: login }, identity);
+    // The terminal's login is nobody's group login: it joins the default group.
+    const meta = await this.ctx.enroll("claude", { kind: "claude", oauth: login }, identity, slot.name === "global" ? DEFAULT_GROUP : undefined);
     this.ctx.log(`Saved the outgoing Claude login as "${meta.label}" before switching.`);
   }
 

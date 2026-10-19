@@ -2,7 +2,7 @@
   "name": "agent-pool",
   "displayName": "AgentPool — AI Account Switcher",
   "description": "Switch Claude Code & Codex accounts in one click, see every account's quota on hover, and auto-switch before you hit a limit.",
-  "version": "0.1.16",
+  "version": "0.2.0",
   "publisher": "tranhoaihung",
   "license": "MIT",
   "repository": {
@@ -43,7 +43,7 @@
   ],
   "main": "./dist/extension.js",
   "activationEvents": [
-    "onStartupFinished"
+    "*"
   ],
   "contributes": {
     "viewsContainers": {
@@ -168,10 +168,38 @@
         "command": "agentPool.unpinTerminal",
         "title": "Unpin terminal account",
         "category": "AgentPool"
+      },
+      {
+        "command": "agentPool.setWorkspaceGroup",
+        "title": "Account group for this workspace…",
+        "category": "AgentPool",
+        "icon": "$(organization)"
+      },
+      {
+        "command": "agentPool.moveToGroup",
+        "title": "Move to account group…",
+        "category": "AgentPool"
+      },
+      {
+        "command": "agentPool.editGroup",
+        "title": "Choose accounts of a group…",
+        "category": "AgentPool",
+        "icon": "$(checklist)"
+      },
+      {
+        "command": "agentPool.reloadWindow",
+        "title": "Reload window (apply account change)",
+        "category": "AgentPool",
+        "icon": "$(debug-restart)"
       }
     ],
     "menus": {
       "view/title": [
+        {
+          "command": "agentPool.reloadWindow",
+          "when": "view == agentPool.accounts && agentPool.reloadPending",
+          "group": "navigation@0"
+        },
         {
           "command": "agentPool.addAccount",
           "when": "view == agentPool.accounts",
@@ -211,6 +239,16 @@
           "command": "agentPool.unpinTerminal",
           "when": "view == agentPool.accounts",
           "group": "1_settings@4"
+        },
+        {
+          "command": "agentPool.setWorkspaceGroup",
+          "when": "view == agentPool.accounts",
+          "group": "1_settings@5"
+        },
+        {
+          "command": "agentPool.editGroup",
+          "when": "view == agentPool.accounts",
+          "group": "1_settings@6"
         }
       ],
       "view/item/context": [
@@ -258,6 +296,36 @@
           "command": "agentPool.useForTerminal",
           "when": "view == agentPool.accounts && viewItem =~ /^account/",
           "group": "1_main@3"
+        },
+        {
+          "command": "agentPool.moveToGroup",
+          "when": "view == agentPool.accounts && viewItem =~ /^account/",
+          "group": "2_manage@3"
+        },
+        {
+          "command": "agentPool.editGroup",
+          "when": "view == agentPool.accounts && viewItem == provider-claude",
+          "group": "1_main@1"
+        },
+        {
+          "command": "agentPool.editGroup",
+          "when": "view == agentPool.accounts && viewItem == workspace",
+          "group": "inline@1"
+        },
+        {
+          "command": "agentPool.setWorkspaceGroup",
+          "when": "view == agentPool.accounts && viewItem == workspace",
+          "group": "1_main@1"
+        },
+        {
+          "command": "agentPool.editGroup",
+          "when": "view == agentPool.accounts && viewItem == workspace",
+          "group": "1_main@2"
+        },
+        {
+          "command": "agentPool.reloadWindow",
+          "when": "view == agentPool.accounts && viewItem == workspace-reload",
+          "group": "inline@1"
         }
       ],
       "commandPalette": [
@@ -352,6 +420,18 @@
             "keybindings.json"
           ],
           "description": "Items of ~/.claude linked into the VS Code slot, so Claude Code in VS Code keeps your global config. Login and .claude.json stay separate."
+        },
+        "agentPool.claude.groupSharedItems": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "agents",
+            "commands",
+            "skills"
+          ],
+          "markdownDescription": "Items of `~/.claude` linked into an **account group's** slot (groups other than the default one). Everything else — `CLAUDE.md`, `settings.json` (hooks), project history, memory, MCP servers — stays separate per group, so a company group never receives your personal instructions or history. Note: agent, command and skill descriptions are sent to Claude in every session."
         },
         "agentPool.claude.applyToIntegratedTerminal": {
           "type": "boolean",

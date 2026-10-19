@@ -50,6 +50,14 @@ export interface AccountMeta {
   addedAt: number;
   /** Non-secret provider data, e.g. Claude's `oauthAccount` fields. */
   extra?: Record<string, unknown>;
+  /** Claude only: the account group it belongs to (none = the default group). */
+  group?: string;
+}
+
+/** A Claude account group besides the default one (see core/groups). */
+export interface AccountGroup {
+  id: string;
+  name: string;
 }
 
 export interface SwitchRecord {
@@ -69,13 +77,18 @@ export interface PoolData {
   /** Priority order per provider, highest first. */
   order: Record<ProviderId, string[]>;
   usage: Record<string, UsageRecord>;
-  lastSwitch: Partial<Record<ProviderId, SwitchRecord>>;
-  /** Exhaustion notices already shown, keyed by provider. */
-  noticeKeys: Partial<Record<ProviderId, string>>;
+  /** Keyed by lane: the provider, or `claude@<group>` for a group's own switches. */
+  lastSwitch: Partial<Record<string, SwitchRecord>>;
+  /** Exhaustion notices already shown, keyed by lane. */
+  noticeKeys: Partial<Record<string, string>>;
   /** Identity keys the person removed: auto-save skips them until they are saved by hand. */
   removedIdentities?: string[];
   /** Claude account pinned to the terminal: VS Code never uses, swaps or switches it. */
   terminalPin?: string;
+  /** Claude account groups besides the default one. */
+  groups?: AccountGroup[];
+  /** Workspace (folder or .code-workspace path) → group id. */
+  workspaceGroups?: Record<string, string>;
 }
 
 export function emptyPool(): PoolData {

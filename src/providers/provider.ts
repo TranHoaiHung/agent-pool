@@ -8,8 +8,9 @@ export interface ProviderContext {
   pool: PoolStore;
   vault: SecretVault;
   log(message: string): void;
-  /** Saves a login nobody enrolled, so a switch never throws a login away. */
-  enroll(provider: ProviderId, secret: AccountSecret, identity: Identity): Promise<AccountMeta>;
+  /** Saves a login nobody enrolled, so a switch never throws a login away. `group`: the Claude
+   * account group a new account joins (default: the window's). */
+  enroll(provider: ProviderId, secret: AccountSecret, identity: Identity, group?: string): Promise<AccountMeta>;
 }
 
 export interface SwitchOutcome {

@@ -1,0 +1,46 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="size" content="1200,520"><link rel="stylesheet" href="style.css">
+<style>
+body{width:1200px;height:520px;padding:20px;display:flex;gap:24px}
+.frame{width:564px;height:480px}
+.side{width:100%;background:var(--side);height:422px}
+.side h3{font-size:11px;font-weight:600;letter-spacing:.5px;padding:10px 16px;color:#bbb;display:flex;justify-content:space-between}
+.side h3 span{display:flex;gap:10px;color:#ccc}
+.row{height:26px;display:flex;align-items:center;gap:6px;padding-left:12px;font-size:13px}
+.row.group{font-weight:600}.row .desc{color:var(--muted);font-size:12px;margin-left:6px}
+.row.acct{padding-left:28px}
+.row.ws{background:#1f2a3a;border-left:2px solid var(--blue);padding-left:10px}
+.row .tools{margin-left:auto;padding-right:10px;display:flex;gap:8px;color:#ccc}
+.tag{display:inline-block;font-size:11px;padding:0 6px;border-radius:9px;margin-left:8px}
+.tag.co{background:#1f3352;color:#9cc8ff}.tag.me{background:#2d3a26;color:#a6e08f}
+.caption{line-height:19px}
+</style></head><body>
+<div class="frame">
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">acme-api — Visual Studio Code<span class="tag co">Company</span></span></div>
+  <div class="side">
+    <h3>AGENTPOOL: ACCOUNTS <span><i data-i="add"></i><i data-i="refresh"></i>⋯</span></h3>
+    <div class="row ws"><i data-i="org"></i> Account group: Company <span class="desc">acme-api</span><span class="tools"><i data-i="checklist"></i></span></div>
+    <div class="row group">⌄ Claude Code <span class="desc">auto switch on · group Company</span></div>
+    <div class="row acct"><i data-i="check"></i> 1. dev@acme <span class="desc">5h 42% · 7d 18%</span></div>
+    <div class="row acct"><i data-i="circle"></i> 2. lead@acme <span class="desc">5h 8% · 7d 30%</span></div>
+    <div class="row acct"><i data-i="circle"></i> 3. ops@acme <span class="desc">5h 0% · 7d 5%</span></div>
+    <div class="row group" style="margin-top:6px">⌄ Codex <span class="desc">auto switch on</span></div>
+    <div class="row acct"><i data-i="check"></i> 1. pro-main <span class="desc">5h 23% · 7d 31%</span></div>
+    <div class="caption" style="position:relative;margin:26px 16px 0;display:block">Projects A, B, C → <b>Company</b>: only company accounts, its own auto switch, its own login. No personal CLAUDE.md, hooks or history.</div>
+  </div>
+  <div class="statusbar"><span class="item"><i data-i="sparkle"></i> [Company] dev@acme 42%</span><span class="item"><i data-i="code"></i> pro-main 23%</span></div>
+</div>
+<div class="frame">
+  <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">my-blog — Visual Studio Code<span class="tag me">Default</span></span></div>
+  <div class="side">
+    <h3>AGENTPOOL: ACCOUNTS <span><i data-i="add"></i><i data-i="refresh"></i>⋯</span></h3>
+    <div class="row ws"><i data-i="org"></i> Account group: Default <span class="desc">my-blog</span><span class="tools"><i data-i="checklist"></i></span></div>
+    <div class="row group">⌄ Claude Code <span class="desc">auto switch on · group Default</span></div>
+    <div class="row acct"><i data-i="check"></i> 1. personal <span class="desc"><i data-i="terminal"></i> terminal · 5h 12% · 7d 40%</span></div>
+    <div class="row acct"><i data-i="circle"></i> 2. side-project <span class="desc">5h 0% · 7d 2%</span></div>
+    <div class="row group" style="margin-top:6px">⌄ Codex <span class="desc">auto switch on</span></div>
+    <div class="row acct"><i data-i="check"></i> 1. pro-main <span class="desc">5h 23% · 7d 31%</span></div>
+    <div class="caption" style="position:relative;margin:52px 16px 0;display:block;background:rgba(115,201,145,.95);color:#10301c">Projects D, X (not assigned) → <b>Default</b>: your personal accounts, with your usual ~/.claude setup. Both windows run at the same time.</div>
+  </div>
+  <div class="statusbar"><span class="item"><i data-i="sparkle"></i> [Default] personal 12%</span><span class="item"><i data-i="code"></i> pro-main 23%</span></div>
+</div>
+<script src="icons.js"></script></body></html>

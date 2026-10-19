@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { AccountService } from "../account-service";
-import { ordered } from "../core/priority";
+import { groupName, groupsOn } from "../core/groups";
 import { maxUsed, PROVIDER_LABEL, ProviderId } from "../core/types";
 import { Place } from "../providers/provider";
 import { longThreshold, threshold } from "../usage-poller";
@@ -37,7 +37,7 @@ export class StatusBar {
   render(): void {
     const data = this.service.pool.get();
     for (const [provider, item] of this.items) {
-      const accounts = ordered(data, provider);
+      const accounts = this.service.ordered(provider);
       if (accounts.length === 0) {
         item.hide();
         continue;
@@ -48,7 +48,12 @@ export class StatusBar {
       const scope = provider === "claude" ? this.claudeScopeTag() : "";
       const stale = active && Date.now() - (data.usage[active.id]?.snapshot?.fetchedAt ?? 0) > STALE_AFTER_MS;
       const reload = this.service.pendingReload(provider) ? " $(debug-restart) reload" : "";
-      item.text = `${ICON[provider]} ${active?.label ?? "not saved"}${used !== undefined ? ` ${used}%${stale ? "?" : ""}` : ""}${reload}`;
+      const group = provider === "claude" && groupsOn(data) ? `[${groupName(data, this.service.group)}] ` : "";
+      // While this window must reload, a click on the item reloads it.
+      item.command = reload
+        ? { command: "workbench.action.reloadWindow", title: "Reload Window" }
+        : { command: "agentPool.switch", title: "Switch", arguments: [provider] };
+      item.text = `${ICON[provider]} ${group}${active?.label ?? "not saved"}${used !== undefined ? ` ${used}%${stale ? "?" : ""}` : ""}${reload}`;
       item.backgroundColor = used === undefined || used < 80
         ? undefined
         : new vscode.ThemeColor(used >= this.threshold() ? "statusBarItem.errorBackground" : "statusBarItem.warningBackground");
@@ -64,7 +69,7 @@ export class StatusBar {
   private tooltip(provider: ProviderId, scope: string): vscode.MarkdownString {
     const data = this.service.pool.get();
     const cfg = vscode.workspace.getConfiguration("agentPool");
-    const accounts = ordered(data, provider);
+    const accounts = this.service.ordered(provider);
     const activeId = this.service.activeId(provider);
     const md = new vscode.MarkdownString("", true);
     md.isTrusted = { enabledCommands: COMMANDS };
@@ -131,6 +136,10 @@ export class StatusBar {
   }
 
   private claudeScopeTag(): string {
+    const data = this.service.pool.get();
+    if (groupsOn(data)) {
+      return ` · group ${groupName(data, this.service.group)}`;
+    }
     const on = vscode.workspace.getConfiguration("agentPool").get<boolean>("claude.switchTerminalToo") ?? false;
     return on ? " (VS Code + terminal)" : " (VS Code only)";
   }

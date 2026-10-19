@@ -1,5 +1,10 @@
 // Minimal codicon-like glyphs: <i data-i="check"></i> becomes an inline SVG.
 const ICONS = {
+  org: '<circle cx="8" cy="4" r="2" stroke="#ccc" stroke-width="1.3" fill="none"/><circle cx="3.5" cy="12" r="1.8" stroke="#ccc" stroke-width="1.3" fill="none"/><circle cx="12.5" cy="12" r="1.8" stroke="#ccc" stroke-width="1.3" fill="none"/><path d="M8 6v2.5M3.5 10V8.5h9V10" stroke="#ccc" stroke-width="1.3" fill="none"/>',
+  reload: '<path d="M12.6 5.2A5 5 0 1 0 13 9" stroke="#cca700" stroke-width="1.6" fill="none" stroke-linecap="round"/><path d="M13.2 1.8v3.8H9.4" stroke="#cca700" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+  checklist: '<path d="M2 4l1.4 1.4L6 2.8M2 10l1.4 1.4L6 8.8" stroke="#ccc" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 4.2h6M8 10.2h6" stroke="#ccc" stroke-width="1.3"/>',
+  box: '<rect x="2" y="2" width="12" height="12" rx="2" stroke="#9d9d9d" stroke-width="1.3" fill="none"/>',
+  boxon: '<rect x="2" y="2" width="12" height="12" rx="2" fill="#0078d4"/><path d="M4.6 8.2l2.2 2.2 4.6-4.8" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
   check: '<circle cx="8" cy="8" r="7" fill="#73c991"/><path d="M4.6 8.2l2.2 2.2 4.6-4.8" stroke="#1e1e1e" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
   circle: '<circle cx="8" cy="8" r="6.2" stroke="#9d9d9d" stroke-width="1.4" fill="none"/>',
   slash: '<circle cx="8" cy="8" r="6.2" stroke="#9d9d9d" stroke-width="1.4" fill="none"/><path d="M3.8 12.2l8.4-8.4" stroke="#9d9d9d" stroke-width="1.4"/>',
