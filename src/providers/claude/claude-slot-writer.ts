@@ -29,11 +29,21 @@ export class ClaudeSlotWriter {
   async swapIn(slot: ClaudeSlot, account: AccountMeta): Promise<string[]> {
     // Already there: writing the vault copy over the live one could put back a spent token.
     let before = await this.index.owner(slot, true);
-    if (before.unresolved && before.oauth && isExpiring(before.oauth)) {
-      await this.renewUnidentified(slot);
-      before = await this.index.owner(slot, true);
+    let dead: string | undefined;
+    const stale = before.oauth;
+    if (before.unresolved && stale && isExpiring(stale)) {
+      try {
+        await this.renewUnidentified(slot);
+        before = await this.index.owner(slot, true);
+      } catch (e) {
+        if (!(e instanceof HttpError && e.deadLogin)) {
+          throw e;
+        }
+        // Its sign-in ended (time limit, revoked): nothing in it can be lost by overwriting it.
+        dead = stale.refreshToken;
+      }
     }
-    if (before.unresolved) {
+    if (before.unresolved && !dead) {
       throw new UnresolvedLoginError();
     }
     if (before.accountId === account.id) {
@@ -49,7 +59,7 @@ export class ClaudeSlotWriter {
       if (outgoing?.refreshToken === incoming.refreshToken) {
         return; // became live meanwhile
       }
-      if (outgoing?.refreshToken) {
+      if (outgoing?.refreshToken && outgoing.refreshToken !== dead) {
         await this.park(slot, outgoing);
       }
       await writeLive(slot, { ...(live.doc ?? {}), claudeAiOauth: incoming });
@@ -84,8 +94,11 @@ export class ClaudeSlotWriter {
     this.index.invalidate(slot.dir);
   }
 
-  /** Renews a login that is live in `slot`, the way Claude Code would, and returns it. */
-  async renewLive(slot: ClaudeSlot, accountId: string): Promise<ClaudeOAuth> {
+  /**
+   * Renews a login that is live in `slot`, the way Claude Code would, and returns it. `others`:
+   * every other slot, so an ended sign-in is replaced only by a saved login no slot holds.
+   */
+  async renewLive(slot: ClaudeSlot, accountId: string, others: ClaudeSlot[] = []): Promise<ClaudeOAuth> {
     return withLocks(refreshLocks(slot.dir), LOCK_TIMEOUT_MS, async () => {
       const live = await readLive(slot);
       const current = live.doc?.claudeAiOauth;
@@ -95,7 +108,21 @@ export class ClaudeSlotWriter {
       if (!isExpiring(current)) {
         return current; // a Claude Code session renewed it meanwhile
       }
-      const renewed = await refreshClaude(current);
+      let renewed: ClaudeOAuth;
+      try {
+        renewed = await refreshClaude(current);
+      } catch (e) {
+        // The slot's sign-in ended. When the account was signed in again since (Add account),
+        // that newer login replaces the dead copy here instead of failing on every read.
+        // "reused" means a newer copy lives somewhere else: never replace on that.
+        const ended = e instanceof HttpError && e.deadLogin && !/reused/i.test(e.message);
+        const newer = ended && !(await this.heldBy(others, accountId)) ? await this.renewSaved(accountId, current.refreshToken) : undefined;
+        if (!newer) {
+          throw e;
+        }
+        this.ctx.log(`The ${slot.name} slot held an ended sign-in; using the newer one saved for this account.`);
+        renewed = newer;
+      }
       // The old refresh token is spent now: keep the new one in the vault before anything
       // else can fail (a locked Keychain, a busy write lock).
       await this.index.sync(accountId, renewed);
@@ -176,16 +203,40 @@ export class ClaudeSlotWriter {
 
   /** The account's parked login, renewed under its cross-window lock when expiring. */
   async freshParked(account: AccountMeta): Promise<ClaudeOAuth> {
-    return lockAccount(account.id, async () => {
-      const secret = await this.ctx.vault.get(account.id);
-      if (secret?.kind !== "claude") {
-        throw new Error(`No saved login for ${account.label}. Sign in to it again.`);
+    const oauth = await this.renewSaved(account.id);
+    if (!oauth) {
+      throw new Error(`No saved login for ${account.label}. Sign in to it again.`);
+    }
+    return oauth;
+  }
+
+  /** Whether one of `slots` holds the account's saved login (renewing it would spend their token). */
+  private async heldBy(slots: ClaudeSlot[], accountId: string): Promise<boolean> {
+    const saved = await this.ctx.vault.get(accountId);
+    if (saved?.kind !== "claude") {
+      return false;
+    }
+    for (const s of slots) {
+      if ((await readLive(s)).doc?.claudeAiOauth?.refreshToken === saved.oauth.refreshToken) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** The saved login, renewed under its cross-window lock when expiring; undefined when there is
+   * none (or it is still the one with refresh token `unless`). */
+  private async renewSaved(accountId: string, unless?: string): Promise<ClaudeOAuth | undefined> {
+    return lockAccount(accountId, async () => {
+      const secret = await this.ctx.vault.get(accountId);
+      if (secret?.kind !== "claude" || secret.oauth.refreshToken === unless) {
+        return undefined;
       }
       if (!isExpiring(secret.oauth)) {
         return secret.oauth;
       }
       const renewed = await refreshClaude(secret.oauth);
-      await this.ctx.vault.set(account.id, { kind: "claude", oauth: renewed });
+      await this.ctx.vault.set(accountId, { kind: "claude", oauth: renewed });
       return renewed;
     });
   }

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.4 — 2026-11-26
+
+- Fix: an account whose sign-in ended (Claude Code sign-ins now have a time limit) stayed on
+  "needs sign-in" however often it was removed and added again, and switching to it failed. The
+  dead login left in Claude Code's login slot is now replaced by the newer sign-in (on the next
+  usage read, or at once on a switch), so signing in again — **＋ Add account** — is enough.
+- A shared terminal/VS Code login whose sign-in ended no longer blocks the account either.
+
 ## 0.2.3 — 2026-10-27
 
 - An account whose login stopped working is never switched to anymore (by hand it offers *Sign in

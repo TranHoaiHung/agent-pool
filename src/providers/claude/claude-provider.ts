@@ -54,6 +54,12 @@ export class ClaudeProvider implements Provider {
     return this.scope.isActive() ? this.slot() : globalSlot();
   }
 
+  /** Every login slot this window knows except `slot`. */
+  private othersThan(slot: ClaudeSlot): ClaudeSlot[] {
+    const all = this.scope.win?.on() ? [...this.groupSlots(DEFAULT_GROUP), globalSlot()] : [this.slot(), globalSlot()];
+    return all.filter((s) => s.dir !== slot.dir);
+  }
+
   /** Every group's slot, `first`'s first. */
   private groupSlots(first: string): ClaudeSlot[] {
     const ids = [first, DEFAULT_GROUP, ...(this.ctx.pool.get().groups ?? []).map((g) => g.id)];
@@ -89,7 +95,7 @@ export class ClaudeProvider implements Provider {
     let oauth = owner.oauth;
     if (isExpiring(oauth)) {
       // Renew through the slot so Claude Code and the vault stay on one generation.
-      oauth = owner.accountId ? await this.writer.renewLive(this.vscodeTarget(), owner.accountId) : oauth;
+      oauth = owner.accountId ? await this.writer.renewLive(this.vscodeTarget(), owner.accountId, this.othersThan(this.vscodeTarget())) : oauth;
     }
     const identity = owner.identity ?? (await fetchClaudeIdentity(oauth.accessToken));
     return { secret: { kind: "claude" as const, oauth }, identity };
@@ -147,7 +153,7 @@ export class ClaudeProvider implements Provider {
     if (owner.accountId === account.id && owner.oauth) {
       // Renew through the slot (its refresh lock) rather than from the vault copy: a refresh
       // from the vault would spend the token the slot still holds.
-      const oauth = isExpiring(owner.oauth) ? await this.writer.renewLive(slot, account.id) : owner.oauth;
+      const oauth = isExpiring(owner.oauth) ? await this.writer.renewLive(slot, account.id, this.othersThan(slot)) : owner.oauth;
       await this.index.sync(account.id, oauth);
     }
   }
@@ -236,7 +242,14 @@ export class ClaudeProvider implements Provider {
   /** A usable access token for the account, wherever its login lives. */
   private async accessToken(account: AccountMeta): Promise<string> {
     if ((await this.sharedAccount()) === account.id) {
-      const shared = await this.writer.keepMirrored([globalSlot(), this.slot()], account.id);
+      // A shared login whose sign-in ended falls through to the per-slot path below, which
+      // replaces it with a newer saved sign-in when there is one.
+      const shared = await this.writer.keepMirrored([globalSlot(), this.slot()], account.id).catch((e: unknown) => {
+        if (e instanceof HttpError && e.deadLogin) {
+          return undefined;
+        }
+        throw e;
+      });
       if (shared) {
         return shared.accessToken;
       }
@@ -269,7 +282,7 @@ export class ClaudeProvider implements Provider {
       }
       if (owner.accountId === account.id && owner.oauth) {
         return isExpiring(owner.oauth)
-          ? (await this.writer.renewLive(slot, account.id)).accessToken
+          ? (await this.writer.renewLive(slot, account.id, this.othersThan(slot))).accessToken
           : owner.oauth.accessToken;
       }
     }
