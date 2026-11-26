@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.5 — 2026-11-26
+
+- Fix: switching accounts failed with "Could not identify the Claude login in use yet" when a login
+  slot — often the terminal's, which every switch checks — held a login Anthropic refuses (sign-in
+  ended or revoked) before its stated expiry. Such a login is now renewed to identify it, or, when its
+  sign-in has ended, treated as nobody's: switching goes on and usage reads no longer stop. A lookup
+  that merely failed (network, rate limit) still stops the switch, as before.
+
 ## 0.2.4 — 2026-11-26
 
 - Fix: an account whose sign-in ended (Claude Code sign-ins now have a time limit) stayed on

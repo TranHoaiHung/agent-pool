@@ -188,8 +188,10 @@ export class ClaudeProvider implements Provider {
 
     // VS Code only: the terminal's login is never touched. The VS Code slot, once set up,
     // stays on; switching it only rewrites its login, which running sessions pick up.
-    const global = await this.index.owner(globalSlot());
-    if (global.unresolved) {
+    // The terminal's login decides only whether the target is the terminal's account. One whose
+    // sign-in ended is nobody's: it must not block switching VS Code.
+    const { owner: global, dead: terminalDead } = await this.writer.identify(globalSlot());
+    if (global.unresolved && !terminalDead) {
       throw new UnresolvedLoginError();
     }
     if (global.accountId === account.id && !scopeActive) {
@@ -261,19 +263,15 @@ export class ClaudeProvider implements Provider {
       : this.scope.isActive() ? [this.slot(), globalSlot()] : [globalSlot()];
     for (const slot of slots) {
       let owner = await this.index.owner(slot);
-      if (owner.unresolved && owner.oauth && isExpiring(owner.oauth)) {
-        try {
-          await this.writer.renewUnidentified(slot);
-        } catch (e) {
-          if (!(e instanceof HttpError && e.deadLogin)) {
-            throw e;
-          }
-          // A dead login nobody saved sits in this slot (e.g. one its organization revoked). It
-          // is not this account's: skip it instead of reporting its failure as this account's.
-          this.ctx.log(`The ${slot.name} slot (${slot.dir}) holds a revoked login of an unknown account.`);
+      if (owner.unresolved) {
+        const known = await this.writer.identify(slot);
+        if (known.dead) {
+          // A dead login nobody saved sits in this slot (sign-in ended, revoked). It is not this
+          // account's: skip it instead of reporting its failure as this account's.
+          this.ctx.log(`The ${slot.name} slot (${slot.dir}) holds an ended sign-in of an unknown account.`);
           continue;
         }
-        owner = await this.index.owner(slot);
+        owner = known.owner;
       }
       if (owner.unresolved) {
         // It may be this very account, rotated by Claude Code: never fall back to a vault

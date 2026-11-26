@@ -1,6 +1,7 @@
 import { fingerprint } from "../../core/secret-vault";
 import { ClaudeOAuth, Identity } from "../../core/types";
 import { accountsOf, ProviderContext } from "../provider";
+import { HttpError } from "../http";
 import { fetchClaudeIdentity } from "./claude-api";
 import { ClaudeSlot } from "./claude-paths";
 import { readLive } from "./claude-credential-store";
@@ -18,6 +19,8 @@ export interface LiveOwner {
    * "not saved", callers must not act as if the login belonged to nobody.
    */
   unresolved?: boolean;
+  /** Unresolved because Anthropic refused the access token itself (revoked, sign-in ended). */
+  rejected?: boolean;
 }
 
 export class UnresolvedLoginError extends Error {
@@ -61,12 +64,14 @@ export class ClaudeLiveIndex {
     let accountId = await this.matchByToken(fp);
     let identity: Identity | undefined;
     let unresolved = false;
+    let rejected = false;
     if (!accountId) {
       try {
         identity = await fetchClaudeIdentity(oauth.accessToken);
         accountId = accountsOf(this.ctx, "claude").find((a) => a.identityKey === identity!.identityKey)?.id;
-      } catch {
+      } catch (e) {
         unresolved = true;
+        rejected = e instanceof HttpError && e.unauthorized;
       }
     }
     if (accountId) {
@@ -75,7 +80,7 @@ export class ClaudeLiveIndex {
     if (!unresolved) {
       this.cache.set(slot.dir, { fp, accountId, identity });
     }
-    return { oauth, accountId, identity, fallbackFile: live.fallbackFile, unresolved };
+    return { oauth, accountId, identity, fallbackFile: live.fallbackFile, unresolved, rejected };
   }
 
   /**

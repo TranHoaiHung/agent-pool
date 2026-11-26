@@ -12,7 +12,7 @@ import { HttpError } from "../src/providers/http";
 // A login slot whose login died (its sign-in reached its time limit): the slot lives in memory,
 // Anthropic is faked. Real dir locks in a temp folder.
 const store = vi.hoisted(() => ({ doc: undefined as { claudeAiOauth?: unknown } | undefined, others: new Map<string, { claudeAiOauth?: unknown }>(), mainDir: "" }));
-const api = vi.hoisted(() => ({ dead: new Set<string>(), identities: new Map<string, string>(), fail: undefined as Error | undefined }));
+const api = vi.hoisted(() => ({ dead: new Set<string>(), identities: new Map<string, string>(), fail: undefined as Error | undefined, profileFail: undefined as Error | undefined }));
 vi.mock("../src/providers/claude/claude-credential-store", () => ({
   readLive: async (s: { dir: string }) => {
     const doc = s.dir === store.mainDir ? store.doc : store.others.get(s.dir);
@@ -35,6 +35,7 @@ vi.mock("../src/providers/claude/claude-api", async (actual) => ({
     return { ...o, accessToken: `${o.accessToken}+`, refreshToken: `${o.refreshToken}+`, expiresAt: Date.now() + 8 * 3_600_000 };
   },
   fetchClaudeIdentity: async (token: string) => {
+    if (api.profileFail) throw api.profileFail;
     const key = api.identities.get(token);
     if (!key) throw new HttpError(401, "HTTP 401: token expired");
     return { identityKey: key };
@@ -62,6 +63,7 @@ beforeEach(async () => {
   api.dead.clear();
   api.identities.clear();
   api.fail = undefined;
+  api.profileFail = undefined;
   const pool = new PoolStore(path.join(dir, "pool.json"));
   await pool.mutate((d) => (d.accounts = [meta("A"), meta("B")]));
   const vault = {
@@ -126,5 +128,48 @@ describe("a dead login in a slot", () => {
 
     expect((store.doc?.claudeAiOauth as ClaudeOAuth).refreshToken).toBe("B-r");
     expect(enrolled).toBe(0); // nothing to save from a dead login
+  });
+
+  it("a login Anthropic rejects before its expiry is renewed and identified, not a dead end", async () => {
+    // Access token revoked although its expiry is hours away; the refresh token still works.
+    store.doc = { claudeAiOauth: { accessToken: "A-revoked", refreshToken: "A-r", expiresAt: far() } };
+    api.identities.set("A-revoked+", "A:org"); // the renewed token is A's
+    secrets.set("B", { kind: "claude", oauth: { accessToken: "B", refreshToken: "B-r", expiresAt: far() } });
+
+    await writer.swapIn(slot, meta("B"));
+
+    expect((store.doc?.claudeAiOauth as ClaudeOAuth).refreshToken).toBe("B-r");
+    expect((secrets.get("A") as { oauth: ClaudeOAuth }).oauth.refreshToken).toBe("A-r+"); // parked, renewed
+  });
+
+  it("a rejected login whose refresh is dead too is overwritten by a switch", async () => {
+    store.doc = { claudeAiOauth: { accessToken: "Z-revoked", refreshToken: "Z-r", expiresAt: far() } };
+    api.dead.add("Z-r");
+    secrets.set("B", { kind: "claude", oauth: { accessToken: "B", refreshToken: "B-r", expiresAt: far() } });
+
+    await writer.swapIn(slot, meta("B"));
+
+    expect((store.doc?.claudeAiOauth as ClaudeOAuth).refreshToken).toBe("B-r");
+    expect(enrolled).toBe(0);
+  });
+
+  it("a login refused even after a successful renewal (organization block) does not block switching", async () => {
+    store.doc = { claudeAiOauth: { accessToken: "O-blocked", refreshToken: "O-r", expiresAt: far() } };
+    secrets.set("B", { kind: "claude", oauth: { accessToken: "B", refreshToken: "B-r", expiresAt: far() } });
+
+    await writer.swapIn(slot, meta("B"));
+
+    expect((store.doc?.claudeAiOauth as ClaudeOAuth).refreshToken).toBe("B-r");
+  });
+
+  it("tells the terminal's ended sign-in (nobody's, switch may go on) from a lookup that merely failed", async () => {
+    store.doc = { claudeAiOauth: { accessToken: "T-revoked", refreshToken: "T-r", expiresAt: far() } };
+    api.dead.add("T-r");
+    expect((await writer.identify(slot)).dead).toBe("T-r");
+
+    api.profileFail = new HttpError(429, "HTTP 429: rate limited"); // not the token's fault
+    const known = await writer.identify(slot);
+    expect(known.owner.unresolved).toBe(true);
+    expect(known.dead).toBeUndefined(); // so a switch still stops: nothing is guessed
   });
 });

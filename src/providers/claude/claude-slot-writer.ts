@@ -7,7 +7,7 @@ import { HttpError } from "../http";
 import { lockAccount, ProviderContext } from "../provider";
 import { fetchClaudeIdentity, isExpiring, refreshClaude } from "./claude-api";
 import { clearLive, credentialFile, readLive, stowFallbackFile, writeLive } from "./claude-credential-store";
-import { ClaudeLiveIndex, UnresolvedLoginError } from "./claude-live-index";
+import { ClaudeLiveIndex, LiveOwner, UnresolvedLoginError } from "./claude-live-index";
 import { ClaudeSlot } from "./claude-paths";
 
 const LOCK_TIMEOUT_MS = 20_000;
@@ -28,21 +28,7 @@ export class ClaudeSlotWriter {
   /** Puts `account`'s parked login into `slot`. Returns notes for the user. */
   async swapIn(slot: ClaudeSlot, account: AccountMeta): Promise<string[]> {
     // Already there: writing the vault copy over the live one could put back a spent token.
-    let before = await this.index.owner(slot, true);
-    let dead: string | undefined;
-    const stale = before.oauth;
-    if (before.unresolved && stale && isExpiring(stale)) {
-      try {
-        await this.renewUnidentified(slot);
-        before = await this.index.owner(slot, true);
-      } catch (e) {
-        if (!(e instanceof HttpError && e.deadLogin)) {
-          throw e;
-        }
-        // Its sign-in ended (time limit, revoked): nothing in it can be lost by overwriting it.
-        dead = stale.refreshToken;
-      }
-    }
+    const { owner: before, dead } = await this.identify(slot);
     if (before.unresolved && !dead) {
       throw new UnresolvedLoginError();
     }
@@ -80,6 +66,31 @@ export class ClaudeSlotWriter {
     }
     this.writeOauthAccount(slot, account);
     return notes;
+  }
+
+  /**
+   * Who holds `slot`, renewing its login first when that is the only way to tell (expiring, or
+   * Anthropic refused its access token before its expiry). `dead`: the refresh token of a login
+   * whose sign-in ended (time limit, revoked, organization block): replacing it loses nothing.
+   * Still `unresolved` without `dead`: unknown for now (network, rate limit) — do not act.
+   */
+  async identify(slot: ClaudeSlot): Promise<{ owner: LiveOwner; dead?: string }> {
+    const owner = await this.index.owner(slot, true);
+    const stale = owner.oauth;
+    if (!owner.unresolved || !stale || !(isExpiring(stale) || owner.rejected)) {
+      return { owner };
+    }
+    try {
+      await this.renewUnidentified(slot, owner.rejected);
+      const again = await this.index.owner(slot, true);
+      // Refused even freshly renewed: unusable.
+      return { owner: again, dead: owner.rejected && again.unresolved && again.rejected ? again.oauth?.refreshToken : undefined };
+    } catch (e) {
+      if (!(e instanceof HttpError && e.deadLogin)) {
+        throw e;
+      }
+      return { owner, dead: stale.refreshToken };
+    }
   }
 
   /** Parks the slot's login and empties the slot (the VS Code slot being retired). */
@@ -142,10 +153,11 @@ export class ClaudeSlotWriter {
    * Renews an expired login nobody saved, so it can be identified (Anthropic refuses an
    * expired access token). Done under the slot's locks exactly as Claude Code renews it.
    */
-  async renewUnidentified(slot: ClaudeSlot): Promise<void> {
+  async renewUnidentified(slot: ClaudeSlot, force = false): Promise<void> {
     await withLocks(refreshLocks(slot.dir), LOCK_TIMEOUT_MS, async () => {
       const current = (await readLive(slot)).doc?.claudeAiOauth;
-      if (!current || !isExpiring(current)) {
+      // `force`: Anthropic refused its access token before its expiry (revoked): renew anyway.
+      if (!current || (!force && !isExpiring(current))) {
         return;
       }
       const renewed = await refreshClaude(current);
