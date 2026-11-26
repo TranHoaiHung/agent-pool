@@ -128,6 +128,7 @@ export class UsagePoller {
         const meta = data.accounts.find((a) => a.id === account.id);
         if (meta) {
           meta.needsReauth = false;
+          delete meta.reauthReason;
           meta.plan = snapshot.plan ?? meta.plan;
         }
       });
@@ -143,8 +144,9 @@ export class UsagePoller {
           holdUntil: http?.rateLimited ? Date.now() + (http.retryAfterMs ?? RATE_LIMIT_BACKOFF_MS) : undefined,
         };
         const meta = data.accounts.find((a) => a.id === account.id);
-        if (meta && http?.deadLogin) {
+        if (meta && (http?.deadLogin || http?.orgBlocked)) {
           meta.needsReauth = true;
+          meta.reauthReason = http.orgBlocked ? "organization blocks Claude Code sign-in" : undefined;
         }
       });
       this.service.log(`[${account.provider}] usage of ${account.label}: ${err.message}`);

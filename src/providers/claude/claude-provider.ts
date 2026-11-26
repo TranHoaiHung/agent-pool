@@ -249,7 +249,17 @@ export class ClaudeProvider implements Provider {
     for (const slot of slots) {
       let owner = await this.index.owner(slot);
       if (owner.unresolved && owner.oauth && isExpiring(owner.oauth)) {
-        await this.writer.renewUnidentified(slot);
+        try {
+          await this.writer.renewUnidentified(slot);
+        } catch (e) {
+          if (!(e instanceof HttpError && e.deadLogin)) {
+            throw e;
+          }
+          // A dead login nobody saved sits in this slot (e.g. one its organization revoked). It
+          // is not this account's: skip it instead of reporting its failure as this account's.
+          this.ctx.log(`The ${slot.name} slot (${slot.dir}) holds a revoked login of an unknown account.`);
+          continue;
+        }
         owner = await this.index.owner(slot);
       }
       if (owner.unresolved) {

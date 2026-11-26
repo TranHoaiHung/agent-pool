@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.3 — 2026-10-27
+
+- An account whose login stopped working is never switched to anymore (by hand it offers *Sign in
+  again* instead): before, it could be put in use and sign Claude Code out until switched back.
+- When an organization blocks Claude Code sign-in ("OAuth authentication is currently not allowed for
+  this organization"), the account says so — *organization blocks Claude Code sign-in* — instead of
+  "needs sign-in", since signing in again does not help.
+- A revoked login nobody saved, left in a login slot, no longer marks another account as needing a
+  sign-in: it is skipped (and replaced by the group's account).
+
 ## 0.2.2 — 2026-10-19
 
 - Fix: MCP servers you added globally (`claude mcp add --scope user`) were missing in an account

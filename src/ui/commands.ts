@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { AccountService } from "../account-service";
+import { AccountService, reauthText } from "../account-service";
 import { DEFAULT_GROUP, groupName, groupOf } from "../core/groups";
 import { ordered } from "../core/priority";
 import { AccountMeta, PROVIDER_LABEL, PROVIDERS, ProviderId } from "../core/types";
@@ -102,6 +102,15 @@ export function registerCommands(
   };
 
   const doSwitch = async (account: AccountMeta) => {
+    if (account.needsReauth) {
+      const choice = await vscode.window.showWarningMessage(
+        `${account.label}: ${reauthText(account)}. Switching to it would sign Claude Code out here.`,
+        ...(account.reauthReason ? ["Remove account"] : ["Sign in again"])
+      );
+      if (choice === "Sign in again") await vscode.commands.executeCommand("agentPool.addAccount", account.provider);
+      if (choice === "Remove account") await vscode.commands.executeCommand("agentPool.remove", account.id);
+      return;
+    }
     const outcome = await vscode.window.withProgress(
       { location: vscode.ProgressLocation.Notification, title: `Switching ${PROVIDER_LABEL[account.provider]} to ${account.label}…` },
       () => service.switchTo(account.id, false)
@@ -152,7 +161,7 @@ export function registerCommands(
     const activeId = service.activeId(provider);
     const items = service.ordered(provider).map((a, i) => ({
       label: `${a.id === activeId ? "$(pass-filled)" : "$(circle-large-outline)"} ${i + 1}. ${a.label}`,
-      description: a.needsReauth ? "needs sign-in" : compactUsage(data.usage[a.id]),
+      description: a.needsReauth ? reauthText(a) : compactUsage(data.usage[a.id]),
       detail: [a.email, a.plan].filter(Boolean).join(" · ") || undefined,
       account: a,
     }));

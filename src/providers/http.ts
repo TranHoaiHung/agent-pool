@@ -15,6 +15,11 @@ export class HttpError extends Error {
     return this.status === 429;
   }
 
+  /** The account's organization does not allow Claude Code sign-in: signing in again does not help. */
+  get orgBlocked(): boolean {
+    return this.status === 403 && /not allowed for this organization/i.test(this.message);
+  }
+
   /** The refresh token is spent or revoked: only a new sign-in helps. */
   get deadLogin(): boolean {
     return (

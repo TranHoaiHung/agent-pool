@@ -47,6 +47,8 @@ export interface AccountMeta {
   /** Taken into account by auto switch. */
   inRotation: boolean;
   needsReauth?: boolean;
+  /** Why it needs a sign-in, when signing in again may not help (e.g. the organization blocks it). */
+  reauthReason?: string;
   addedAt: number;
   /** Non-secret provider data, e.g. Claude's `oauthAccount` fields. */
   extra?: Record<string, unknown>;

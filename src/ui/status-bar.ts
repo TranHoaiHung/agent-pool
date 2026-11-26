@@ -100,7 +100,9 @@ export class StatusBar {
         : ` [$(arrow-swap) Switch](command:agentPool.switchTo?${encodeURIComponent(JSON.stringify([a.id]))})`;
       md.appendMarkdown(`${head}${action}  \n`);
       if (a.needsReauth) {
-        md.appendMarkdown(`$(warning) needs sign-in again — use **Add account**  \n`);
+        md.appendMarkdown(a.reauthReason
+          ? `$(warning) ${a.reauthReason} — ask its admin, or remove it  \n`
+          : `$(warning) needs sign-in again — use **Add account**  \n`);
       } else if (record?.snapshot) {
         if (Date.now() - record.snapshot.fetchedAt > STALE_AFTER_MS) {
           md.appendMarkdown(`$(history) _last read ${ago(record.snapshot.fetchedAt)}${record.error ? " (reading fails now)" : ""}_  \n`);

@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { AccountService } from "../account-service";
+import { AccountService, reauthText } from "../account-service";
 import { AccountMeta, maxUsed, PROVIDER_LABEL, PROVIDERS } from "../core/types";
 import { compactUsage, until } from "./format";
 
@@ -59,7 +59,7 @@ function items(service: AccountService): Item[] {
       const icon = inUse ? "$(pass-filled)" : a.needsReauth ? "$(warning)" : used !== undefined && used >= 95 ? "$(error)" : "$(circle-large-outline)";
       result.push({
         label: `${icon} ${i + 1}. ${a.label}`,
-        description: a.needsReauth ? "needs sign-in" : compactUsage(record),
+        description: a.needsReauth ? reauthText(a) : compactUsage(record),
         detail: [a.plan, a.email, nextReset ? `next reset ${until(nextReset.resetsAt)}` : undefined, inUse ? "in use" : "select to switch"]
           .filter(Boolean)
           .join(" · "),

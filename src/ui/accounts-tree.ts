@@ -1,6 +1,6 @@
 import * as path from "path";
 import * as vscode from "vscode";
-import { AccountService } from "../account-service";
+import { AccountService, reauthText } from "../account-service";
 import { groupName, groupsOn } from "../core/groups";
 import { placeBefore } from "../core/priority";
 import { AccountMeta, PROVIDER_LABEL, PROVIDERS, ProviderId } from "../core/types";
@@ -72,7 +72,7 @@ export class AccountsTree implements vscode.TreeDataProvider<Node>, vscode.TreeD
     const inTerminal = this.service.terminalAccount(account.provider) === account.id
       ? this.service.pool.get().terminalPin === account.id ? "📌 terminal · " : "terminal · "
       : "";
-    item.description = account.needsReauth ? "needs sign-in" : inTerminal + compactUsage(data.usage[account.id]);
+    item.description = account.needsReauth ? reauthText(account) : inTerminal + compactUsage(data.usage[account.id]);
     item.tooltip = [account.email, account.orgName, account.plan, account.inRotation ? undefined : "excluded from auto switch"]
       .filter(Boolean)
       .join(" · ");

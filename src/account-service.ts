@@ -175,6 +175,7 @@ export class AccountService {
         meta.plan = identity.plan ?? meta.plan;
         meta.extra = identity.raw ?? meta.extra;
         meta.needsReauth = false;
+        delete meta.reauthReason;
         return;
       }
       const sameProvider = data.accounts.filter((a) => a.provider === provider);
@@ -222,6 +223,10 @@ export class AccountService {
     const account = this.account(id);
     if (!account) {
       throw new Error("Unknown account.");
+    }
+    if (account.needsReauth) {
+      // Its saved login no longer works: putting it in a slot would sign that slot out.
+      throw new Error(`${account.label}: ${reauthText(account)}. Sign in to it again (Add account) before switching to it.`);
     }
     if (this.switching.has(account.provider)) {
       throw new Error("A switch is already under way.");
@@ -360,6 +365,11 @@ export class AccountService {
       }
     });
   }
+}
+
+/** What the UI says about an account whose saved login stopped working. */
+export function reauthText(account: AccountMeta): string {
+  return account.reauthReason ?? "needs sign-in";
 }
 
 /** The email's local part, or `local@domain` (no TLD) when another account already uses it. */
